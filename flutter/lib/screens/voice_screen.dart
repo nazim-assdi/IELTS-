@@ -78,7 +78,14 @@ class _VoiceScreenState extends State<VoiceScreen> {
           break;
         }
       }
-      if (localeId == null) {\n        for (final locale in locales) {\n          if (locale.localeId.toLowerCase().startsWith('en')) { localeId = locale.localeId; break; }\n        }\n      }
+      if (localeId == null) {
+        for (final locale in locales) {
+          if (locale.localeId.toLowerCase().startsWith('en')) {
+            localeId = locale.localeId;
+            break;
+          }
+        }
+      }
       setState(() => listening = true);
       await speech.listen(
         listenOptions: stt.SpeechListenOptions(
