@@ -1,0 +1,10 @@
+{
+  "name": "IELTS HERO",
+  "description": "Gamified IELTS preparation with 100 structured units, personalized Gemini flashcards from past mistakes, real-time voice practice, and native sound effects.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
