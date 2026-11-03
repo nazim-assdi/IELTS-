@@ -22,6 +22,11 @@ jobs:
           channel: stable
       - name: Generate Android and web platform folders
         run: flutter create . --platforms=android,web
+      - name: Apply Android app identity and microphone permissions
+        run: |
+          mkdir -p android/app/src/main/res/drawable
+          cp config/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+          cp config/ielts_hero_icon.xml android/app/src/main/res/drawable/ielts_hero_icon.xml
       - name: Install dependencies
         run: flutter pub get
       - name: Analyze
