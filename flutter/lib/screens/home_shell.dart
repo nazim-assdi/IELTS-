@@ -26,7 +26,7 @@ class _HomeShellState extends State<HomeShell> {
     final pages = <Widget>[
       learningPath(),
       VoiceScreen(prefs: widget.prefs),
-      const CueCardsScreen(),
+      CueCardsScreen(prefs: widget.prefs),
       const VocabularyScreen(),
     ];
     return Scaffold(
