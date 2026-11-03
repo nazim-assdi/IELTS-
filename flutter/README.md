@@ -22,6 +22,9 @@ Install Flutter stable and Android Studio, then run:
 
 ```powershell
 flutter create . --platforms=android,windows,macos,linux,web
+New-Item -ItemType Directory -Force .\\android\\app\\src\\main\\res\\drawable | Out-Null
+Copy-Item .\\config\\AndroidManifest.xml .\\android\\app\\src\\main\\AndroidManifest.xml -Force
+Copy-Item .\\config\\ielts_hero_icon.xml .\\android\\app\\src\\main\\res\\drawable\\ielts_hero_icon.xml -Force
 flutter pub get
 flutter analyze
 flutter run
