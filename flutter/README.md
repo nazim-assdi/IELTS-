@@ -34,8 +34,7 @@ flutter build apk --release
 flutter build windows --release
 ```
 
-## Gemini backend
-In a separate terminal:
+## Android app identity and microphone\n\nThe Android manifest requests microphone and internet access for speech recognition and sets the installed app name to **IELTS HERO**. The launcher icon is the custom green IELTS HERO mark. Android may still show a separate microphone permission prompt the first time you tap the mic.\n\n## Gemini backend\nIn a separate terminal:
 
 ```powershell
 cd backend
