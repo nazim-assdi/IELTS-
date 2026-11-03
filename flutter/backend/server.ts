@@ -5,7 +5,7 @@ import { GoogleGenAI } from '@google/genai';
 const app = express();
 app.use(express.json({ limit: '2mb' }));
 const port = Number(process.env.PORT || 3000);
-const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
 function client() {
   const key = process.env.GEMINI_API_KEY;
