@@ -37,7 +37,13 @@ flutter build apk --release
 flutter build windows --release
 ```
 
-## Android app identity and microphone\n\nThe Android manifest requests microphone and internet access for speech recognition and sets the installed app name to **IELTS HERO**. The launcher icon is the custom green IELTS HERO mark. Android may still show a separate microphone permission prompt the first time you tap the mic.\n\n## Gemini backend\nIn a separate terminal:
+## Android app identity and microphone\n\nThe Android manifest requests microphone and internet access for speech recognition and sets the installed app name to **IELTS HERO**. The launcher icon is the custom green IELTS HERO mark. Android may still show a separate microphone permission prompt the first time you tap the mic.\n\n## Gemini model and free usage
+
+The backend is pinned to **`gemini-2.5-flash`**. It uses the Gemini Developer API through Google AI Studio; it does not require a Gemini Advanced subscription. Create an API key in [Google AI Studio](https://aistudio.google.com/app/apikey), then add it as the private `GEMINI_API_KEY` environment secret in your Render service. Do not put the key in Flutter code or share it in the app.
+
+Google lists Gemini 2.5 Flash with free-tier input and output tokens, subject to account/model rate limits and availability. Free access is limited, not unlimited; requests may be temporarily rejected when the quota is reached. Check the current [official Gemini API pricing and free-tier limits](https://ai.google.dev/gemini-api/docs/pricing).
+
+## Gemini backend\nIn a separate terminal:
 
 ```powershell
 cd backend
