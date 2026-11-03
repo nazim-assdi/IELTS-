@@ -1,64 +1,120 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../services/gemini_api.dart';
 
 class VoiceScreen extends StatefulWidget {
-  const VoiceScreen({super.key});
+  const VoiceScreen({super.key, required this.prefs});
+  final SharedPreferences prefs;
   @override
   State<VoiceScreen> createState() => _VoiceScreenState();
 }
 
 class _VoiceScreenState extends State<VoiceScreen> {
-  final api = GeminiApi();
+  late GeminiApi api;
   final speech = stt.SpeechToText();
   final tts = FlutterTts();
   final input = TextEditingController();
   final messages = <Map<String, String>>[];
   String part = 'Part 1';
   String transcript = '';
-  bool listening = false, loading = false, speechReady = false;
+  String apiUrl = '';
+  bool listening = false, loading = false, speechReady = false, speaking = false;
 
   @override
   void initState() {
     super.initState();
+    apiUrl = widget.prefs.getString('ielts_api_url') ?? const String.fromEnvironment('IELTS_API_URL');
+    api = GeminiApi(baseUrl: apiUrl);
     _initSpeech();
+    _initTts();
+    messages.add({'role': 'examiner', 'text': 'Good day. My name is Dr. Arthur James, and I will be your IELTS speaking examiner today. Could you start by stating your full name and where you are from?'});
+  }
+
+  Future<void> _initTts() async {
+    await tts.setLanguage('en-GB');
+    await tts.setSpeechRate(0.46);
+    tts.setStartHandler(() { if (mounted) setState(() => speaking = true); });
+    tts.setCompletionHandler(() { if (mounted) setState(() => speaking = false); });
+    tts.setErrorHandler((_) { if (mounted) setState(() => speaking = false); });
   }
 
   Future<void> _initSpeech() async {
-    speechReady = await speech.initialize(
-      onStatus: (status) { if (status == 'notListening' && mounted) setState(() => listening = false); },
-      onError: (_) { if (mounted) setState(() => listening = false); },
-    );
+    try {
+      speechReady = await speech.initialize(
+        onStatus: (status) {
+          if ((status == 'notListening' || status == 'done') && mounted) {
+            setState(() => listening = false);
+          }
+        },
+        onError: (error) {
+          if (mounted) {
+            setState(() => listening = false);
+            _notice('Microphone error: ${error.errorMsg}');
+          }
+        },
+      );
+    } catch (_) {
+      speechReady = false;
+    }
     if (mounted) setState(() {});
   }
 
   Future<void> _startListening() async {
+    if (listening) return;
     if (!speechReady) await _initSpeech();
-    if (!speechReady) { _notice('Speech recognition is not available on this device.'); return; }
-    setState(() => listening = true);
-    await speech.listen(
-      localeId: 'en_GB',
-      onResult: (result) => setState(() => transcript = result.recognizedWords),
-    );
+    if (!speechReady) {
+      _notice('Speech recognition is unavailable. Enable microphone permission and install/enable Google Speech Services on Android.');
+      return;
+    }
+    try {
+      final locales = await speech.locales();
+      String? localeId;
+      for (final locale in locales) {
+        if (locale.localeId.toLowerCase() == 'en_gb' || locale.localeId.toLowerCase() == 'en-gb') {
+          localeId = locale.localeId;
+          break;
+        }
+      }
+      localeId ??= locales.where((l) => l.localeId.toLowerCase().startsWith('en')).map((l) => l.localeId).firstOrNull;
+      setState(() => listening = true);
+      await speech.listen(
+        localeId: localeId,
+        listenFor: const Duration(minutes: 2),
+        pauseFor: const Duration(seconds: 5),
+        listenOptions: stt.SpeechListenOptions(
+          partialResults: true,
+          cancelOnError: false,
+          listenMode: stt.ListenMode.dictation,
+        ),
+        onResult: (result) {
+          if (mounted) setState(() => transcript = result.recognizedWords);
+        },
+      );
+    } catch (error) {
+      if (mounted) setState(() => listening = false);
+      _notice('Could not start microphone: $error');
+    }
   }
 
   Future<void> _send() async {
     final message = input.text.trim().isNotEmpty ? input.text.trim() : transcript.trim();
     if (message.isEmpty || loading) return;
+    if (listening) await speech.stop();
     input.clear();
+    final history = messages.map((item) => {'role': item['role']!, 'text': item['text']!}).toList();
     setState(() {
       messages.add({'role': 'candidate', 'text': message});
       transcript = '';
+      listening = false;
       loading = true;
     });
     try {
-      final history = messages.take(messages.length - 1).map((item) => {'role': item['role']!, 'text': item['text']!}).toList();
       final reply = await api.examinerReply(history: history, message: message, part: part);
       if (!mounted) return;
       setState(() => messages.add({'role': 'examiner', 'text': reply}));
-      await tts.setLanguage('en-GB');
       await tts.speak(reply);
     } catch (error) {
       if (mounted) _notice(error.toString().replaceFirst('Exception: ', ''));
@@ -67,11 +123,12 @@ class _VoiceScreenState extends State<VoiceScreen> {
     }
   }
 
-  void _notice(String message) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-
   Future<void> _evaluate() async {
     final sample = messages.where((item) => item['role'] == 'candidate').map((item) => item['text']).join(' ');
-    if (sample.trim().isEmpty) { _notice('Complete a speaking response first.'); return; }
+    if (sample.trim().isEmpty) {
+      _notice('Complete at least one speaking response first.');
+      return;
+    }
     setState(() => loading = true);
     try {
       final result = await api.evaluate(speech: sample, part: part);
@@ -91,6 +148,52 @@ class _VoiceScreenState extends State<VoiceScreen> {
     }
   }
 
+  Future<void> _configureServer() async {
+    final controller = TextEditingController(text: apiUrl);
+    final value = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Connect AI Examiner'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Paste your deployed IELTS HERO API HTTPS address. Do not paste a Gemini API key here.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(labelText: 'API URL', hintText: 'https://your-ielts-api.example.com'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text.trim()), child: const Text('Save')),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value == null) return;
+    final cleaned = value.replaceAll(RegExp(r'/+$'), '');
+    if (cleaned.isNotEmpty && !cleaned.startsWith('https://') && !cleaned.startsWith('http://10.0.2.2')) {
+      _notice('For security, use an HTTPS API address.');
+      return;
+    }
+    await widget.prefs.setString('ielts_api_url', cleaned);
+    if (!mounted) return;
+    setState(() {
+      apiUrl = cleaned;
+      api = GeminiApi(baseUrl: cleaned);
+    });
+    _notice(cleaned.isEmpty ? 'AI server address cleared.' : 'AI server address saved.');
+  }
+
+  void _notice(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   void dispose() {
     input.dispose();
@@ -101,22 +204,24 @@ class _VoiceScreenState extends State<VoiceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final connected = api.configured;
     return Column(children: [
       Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const CircleAvatar(radius: 27, backgroundColor: Color(0xFFE5F5EF), child: Icon(Icons.school_rounded, color: Color(0xFF047857), size: 30)),
-            const SizedBox(width: 12),
+            const CircleAvatar(radius: 25, backgroundColor: Color(0xFFE5F5EF), child: Icon(Icons.school_rounded, color: Color(0xFF047857), size: 28)),
+            const SizedBox(width: 10),
             const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Dr. Arthur James', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
               Text('AI IELTS Speaking Examiner'),
             ])),
-            const Icon(Icons.circle, color: Colors.green, size: 10),
-            const SizedBox(width: 4),
-            const Text('Ready'),
+            Icon(connected ? Icons.cloud_done_rounded : Icons.cloud_off_rounded, color: connected ? Colors.green : Colors.orange),
+            IconButton(tooltip: 'AI server settings', onPressed: _configureServer, icon: const Icon(Icons.settings_outlined)),
           ]),
-          const SizedBox(height: 14),
+          const SizedBox(height: 6),
+          Text(connected ? 'AI server address saved • Check your connection by sending an answer.' : 'AI examiner server not connected. Set up the API address to enable AI replies.', style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 12),
           SegmentedButton<String>(
             segments: const [
               ButtonSegment(value: 'Part 1', label: Text('Part 1')),
@@ -126,73 +231,62 @@ class _VoiceScreenState extends State<VoiceScreen> {
             selected: {part},
             onSelectionChanged: (values) => setState(() => part = values.first),
           ),
-          const SizedBox(height: 8),
-          Text('Practise a realistic IELTS speaking interview. AI feedback requires your own secure Gemini-enabled server.', style: Theme.of(context).textTheme.bodySmall),
           Align(alignment: Alignment.centerRight, child: TextButton.icon(onPressed: loading ? null : _evaluate, icon: const Icon(Icons.assessment_outlined), label: const Text('Evaluate my speaking'))),
         ]),
       ),
       const Divider(height: 1),
       Expanded(
-        child: messages.isEmpty
-            ? Center(child: Padding(
-                padding: const EdgeInsets.all(28),
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.record_voice_over_rounded, size: 58, color: Color(0xFF059669)),
-                  const SizedBox(height: 12),
-                  const Text('Ready for your speaking test?', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 8),
-                  const Text('Start by answering the examiner. You can type or use your microphone.', textAlign: TextAlign.center),
-                  const SizedBox(height: 18),
-                  FilledButton.icon(
-                    onPressed: () => setState(() => messages.add({'role': 'examiner', 'text': 'Good day. Let us begin with Part 1. Could you tell me your full name, please?'})),
-                    icon: const Icon(Icons.play_arrow), label: const Text('Start interview'),
+        child: ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: messages.length + (loading ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index == messages.length) {
+              return const Align(alignment: Alignment.centerLeft, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()));
+            }
+            final message = messages[index];
+            final isCandidate = message['role'] == 'candidate';
+            return Align(
+              alignment: isCandidate ? Alignment.centerRight : Alignment.centerLeft,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 600),
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: isCandidate ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(isCandidate ? 'YOU' : 'EXAMINER', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                  const SizedBox(height: 5),
+                  Text(message['text']!),
+                  if (!isCandidate) Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(onPressed: () async { await tts.stop(); await tts.speak(message['text']!); }, icon: const Icon(Icons.volume_up_outlined, size: 19)),
                   ),
                 ]),
-              ))
-            : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: messages.length + (loading ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == messages.length) return const Align(alignment: Alignment.centerLeft, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()));
-                  final message = messages[index];
-                  final isCandidate = message['role'] == 'candidate';
-                  return Align(
-                    alignment: isCandidate ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      constraints: const BoxConstraints(maxWidth: 600),
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: isCandidate ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(isCandidate ? 'YOU' : 'EXAMINER', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
-                        const SizedBox(height: 5),
-                        Text(message['text']!),
-                        if (!isCandidate) Align(
-                          alignment: Alignment.centerRight,
-                          child: IconButton(onPressed: () => tts.speak(message['text']!), icon: const Icon(Icons.volume_up_outlined, size: 19)),
-                        ),
-                      ]),
-                    ),
-                  );
-                },
               ),
+            );
+          },
+        ),
       ),
-      if (transcript.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4), child: Text('Recognised: $transcript')),
+      if (transcript.isNotEmpty)
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4), child: Text('Recognised: $transcript', maxLines: 2, overflow: TextOverflow.ellipsis)),
       SafeArea(
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
           child: Row(children: [
             IconButton.filledTonal(
-              onPressed: listening ? () => speech.stop() : _startListening,
+              tooltip: listening ? 'Stop recording' : 'Start speaking',
+              onPressed: listening ? () async { await speech.stop(); if (mounted) setState(() => listening = false); } : _startListening,
               icon: Icon(listening ? Icons.stop : Icons.mic),
             ),
             const SizedBox(width: 8),
             Expanded(child: TextField(
               controller: input,
+              minLines: 1,
+              maxLines: 3,
+              textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(hintText: 'Type your answer…', border: OutlineInputBorder(), isDense: true),
               onSubmitted: (_) => _send(),
             )),
