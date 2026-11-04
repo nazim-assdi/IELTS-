@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+const String defaultIeltsApiUrl = 'https://ielts-hero-api.onrender.com';
+
 /// Calls the private server-side Gemini API. Keep API keys on the server only.
 class GeminiApi {
   GeminiApi({required this.baseUrl});
