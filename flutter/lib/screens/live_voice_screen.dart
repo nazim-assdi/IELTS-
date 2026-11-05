@@ -21,6 +21,8 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
   StreamSubscription<dynamic>? audioSubscription;
   AudioStreamPlayer? player;
   Future<void> audioQueue = Future<void>.value();
+  int playbackGeneration = 0;
+  bool playerStarted = false;
   final List<Map<String, String>> transcript = [];
   String part = 'Part 1';
   String status = 'Not connected';
@@ -86,6 +88,7 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
           format: PcmFormat.s16le,
         );
         await player!.play();
+        playerStarted = true;
         if (!mounted) return;
         setState(() {
           connecting = false;
@@ -95,13 +98,20 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
         await startMicrophone();
       } else if (type == 'audio') {
         final bytes = base64Decode(payload['data']?.toString() ?? '');
-        // Ignore tiny/invalid fragments; PCM16 audio must contain complete samples.
-        if (bytes.length < 32) return;
+        if (bytes.isEmpty) return;
+        final generation = playbackGeneration;
         audioQueue = audioQueue.then((_) async {
+          if (generation != playbackGeneration) return;
           final activePlayer = player;
-          if (activePlayer != null && bytes.isNotEmpty) {
-            await activePlayer.feed(bytes);
+          if (activePlayer == null) return;
+          // Barge-in calls stop() which returns the player to idle. Restart it before
+          // feeding the examiner's next response, otherwise later turns are silent.
+          if (!playerStarted) {
+            await activePlayer.play();
+            playerStarted = true;
           }
+          if (generation != playbackGeneration) return;
+          await activePlayer.feed(bytes);
         }).catchError((_) {});
         if (mounted) setState(() => examinerSpeaking = true);
       } else if (type == 'input_transcript') {
@@ -111,7 +121,13 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
       } else if (type == 'turn_complete') {
         if (mounted) setState(() => examinerSpeaking = false);
       } else if (type == 'interrupted') {
-        await player?.stop();
+        // Invalidate queued chunks from the interrupted assistant turn and stop playback
+        // in queue order. The next audio turn will automatically restart the player.
+        playbackGeneration++;
+        playerStarted = false;
+        audioQueue = audioQueue.then((_) async {
+          await player?.stop();
+        }).catchError((_) {});
         if (mounted) setState(() => examinerSpeaking = false);
       } else if (type == 'session_limit') {
         _notice(payload['message']?.toString() ?? 'The live session has ended.');
@@ -183,7 +199,10 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
     try { await ws?.sink.close(); } catch (_) {}
     await socketSubscription?.cancel();
     socketSubscription = null;
+    playbackGeneration++;
+    try { await audioQueue; } catch (_) {}
     try { await player?.stop(); } catch (_) {}
+    playerStarted = false;
     try { await player?.dispose(); } catch (_) {}
     player = null;
     if (mounted) setState(() {
@@ -196,6 +215,7 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
 
   @override
   void dispose() {
+    playbackGeneration++;
     unawaited(stopMicrophone());
     unawaited(socketSubscription?.cancel() ?? Future<void>.value());
     unawaited(channel?.sink.close() ?? Future<void>.value());
