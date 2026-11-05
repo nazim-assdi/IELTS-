@@ -45,9 +45,7 @@ class GeminiApi {
     required String speech,
     required String part,
   }) async {
-    if (!configured) {
-      throw Exception('AI server is not connected. Add your deployed HTTPS API URL in Voice settings.');
-    }
+    if (!configured) throw Exception('AI server is not connected. Add your deployed HTTPS API URL in Voice settings.');
     final response = await http.post(
       _uri('/api/gemini/evaluate-speaking'),
       headers: {'Content-Type': 'application/json'},
@@ -64,6 +62,39 @@ class GeminiApi {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'category': category}),
     ).timeout(const Duration(seconds: 60));
+    if (response.statusCode != 200) throw Exception(_error(response));
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<String> translateText({
+    required String text,
+    required String targetLanguage,
+  }) async {
+    if (!configured) throw Exception('Translation service is not connected.');
+    final response = await http.post(
+      _uri('/api/gemini/translate'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'text': text, 'targetLanguage': targetLanguage}),
+    ).timeout(const Duration(seconds: 60));
+    if (response.statusCode != 200) throw Exception(_error(response));
+    return (jsonDecode(response.body) as Map<String, dynamic>)['translation']?.toString() ?? '';
+  }
+
+  Future<Map<String, dynamic>> generateLesson({
+    required String topic,
+    required String description,
+    required int lessonNumber,
+  }) async {
+    if (!configured) throw Exception('AI lesson service is not connected.');
+    final response = await http.post(
+      _uri('/api/gemini/generate-lesson'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'topic': topic,
+        'description': description,
+        'lessonNumber': lessonNumber,
+      }),
+    ).timeout(const Duration(seconds: 90));
     if (response.statusCode != 200) throw Exception(_error(response));
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
