@@ -25,9 +25,10 @@ class _LessonScreenState extends State<LessonScreen> {
   String? lessonError;
   late final ProgressStore store = ProgressStore(widget.prefs);
 
-  GeminiApi get api => GeminiApi(
-    baseUrl: widget.prefs.getString('ielts_api_url') ?? defaultIeltsApiUrl,
-  );
+  GeminiApi get api {
+    final saved = widget.prefs.getString('ielts_api_url')?.trim() ?? '';
+    return GeminiApi(baseUrl: saved.isEmpty ? defaultIeltsApiUrl : saved);
+  }
 
   UnitTopic get topic => unitTopics[widget.unitNumber - 1];
 
