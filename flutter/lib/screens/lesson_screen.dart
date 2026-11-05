@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/curriculum.dart';
 import '../services/gemini_api.dart';
@@ -18,7 +19,8 @@ class LessonScreen extends StatefulWidget {
 class _LessonScreenState extends State<LessonScreen> {
   int index = 0, score = 0;
   String? selected;
-  bool checked = false, finished = false, lessonLoading = false;
+  bool checked = false, finished = false, lessonLoading = false, listeningAudioPlaying = false;
+  final lessonTts = FlutterTts();
   Map<String, dynamic>? aiLesson;
   String? lessonError;
   late final ProgressStore store = ProgressStore(widget.prefs);
@@ -32,7 +34,7 @@ class _LessonScreenState extends State<LessonScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.lessonNumber >= 3) _loadAiLesson();
+    _loadAiLesson();
   }
 
   Future<void> _loadAiLesson() async {
@@ -52,14 +54,14 @@ class _LessonScreenState extends State<LessonScreen> {
   }
 
   List<Map<String, dynamic>> get questions {
-    if (widget.lessonNumber == 1) {
+    if (aiLesson == null && widget.lessonNumber == 1) {
       return [
         {'type':'match','prompt':'Choose the strongest natural academic collocation:','pairs':[['profound','ramifications'],['foster','creative innovation'],['marked','disparity'],['ubiquitous','presence']], 'answer':'profound ramifications'},
         {'type':'choice','prompt':'Select the optimal cohesive connector:','context':'Nuanced analysis is essential; ________.','options':['nonetheless','because','such as','at first'],'answer':'nonetheless','why':'“Nonetheless” introduces a contrast.'},
         {'type':'order','prompt':'Arrange the words into a Band 8+ sentence:','words':['What','strikes','me','most','is','the','sheer','resilience','of','the','community.'],'answer':'What strikes me most is the sheer resilience of the community.'},
       ];
     }
-    if (widget.lessonNumber == 2) {
+    if (aiLesson == null && widget.lessonNumber == 2) {
       return [
         {'type':'choice','prompt':'Select the grammatically accurate statement:','options':['From my vantage point, the long-term benefits significantly outweigh the costs.','According to me, benefits are much more than the costs.','In my opinion benefits having more importance than costs.','To my point of view, benefits is bigger than costs.'],'answer':'From my vantage point, the long-term benefits significantly outweigh the costs.','why':'“From my vantage point” is a natural formal expression.'},
         {'type':'shadow','prompt':'Read this sentence aloud with natural British intonation:','sentence':'Were we to prioritise sustainable infrastructure, the ecological dividends would prove monumental.'},
@@ -127,6 +129,83 @@ class _LessonScreenState extends State<LessonScreen> {
     ));
   }
 
+  Future<void> _playListening(String script) async {
+    if (script.trim().isEmpty || listeningAudioPlaying) return;
+    setState(() => listeningAudioPlaying = true);
+    try {
+      await lessonTts.setLanguage('en-GB');
+      await lessonTts.setSpeechRate(0.45);
+      await lessonTts.awaitSpeakCompletion(true);
+      await lessonTts.speak(script);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Listening audio could not play: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => listeningAudioPlaying = false);
+    }
+  }
+
+  List<Widget> _questionTiles(dynamic rawQuestions) {
+    if (rawQuestions is! List) return [];
+    return rawQuestions.whereType<Map>().map<Widget>((question) {
+      final options = (question['options'] as List? ?? [])
+          .map((item) => item.toString()).toList();
+      return Card(
+        margin: const EdgeInsets.only(top: 8),
+        child: ExpansionTile(
+          title: Text(question['question']?.toString() ?? 'Practice question',
+              style: const TextStyle(fontWeight: FontWeight.w700)),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+          children: [
+            ...options.map((option) => Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: Text('• $option'),
+              ),
+            )),
+            if ((question['answer'] ?? '').toString().isNotEmpty)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Answer: ${question['answer']}',
+                    style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF047857))),
+              ),
+            if ((question['explanationBn'] ?? '').toString().isNotEmpty)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 5),
+                  child: Text(question['explanationBn'].toString()),
+                ),
+              ),
+          ],
+        ),
+      );
+    }).toList();
+  }
+
+  Widget _skillPanel(String title, IconData icon, List<Widget> children) {
+    if (children.isEmpty) return const SizedBox.shrink();
+    return Card(
+      margin: const EdgeInsets.only(top: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, color: const Color(0xFF059669)),
+            const SizedBox(width: 8),
+            Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16))),
+          ]),
+          const SizedBox(height: 10),
+          ...children,
+        ]),
+      ),
+    );
+  }
+
   Widget _onlineLessonCard() {
     if (lessonLoading && aiLesson == null) {
       return const Card(child: Padding(
@@ -134,7 +213,7 @@ class _LessonScreenState extends State<LessonScreen> {
         child: Row(children: [
           SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2)),
           SizedBox(width: 12),
-          Expanded(child: Text('Creating your topic-specific IELTS lesson…')),
+          Expanded(child: Text('Creating your IELTS lesson with Listening, Reading, Writing and Speaking practice…')),
         ]),
       ));
     }
@@ -153,55 +232,139 @@ class _LessonScreenState extends State<LessonScreen> {
     }
 
     final vocabulary = (aiLesson!['vocabulary'] as List? ?? []);
-    return Card(
-      margin: const EdgeInsets.only(bottom: 18),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(aiLesson!['lessonTitle']?.toString() ?? 'AI IELTS Lesson', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 6),
-          Text(aiLesson!['learningFocus']?.toString() ?? '', style: Theme.of(context).textTheme.bodyMedium),
-          if ((aiLesson!['explanationBn'] ?? '').toString().isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(aiLesson!['explanationBn'].toString(), style: const TextStyle(height: 1.55)),
-          ],
-          const Divider(height: 26),
-          const Text('VOCABULARY & BANGLA MEANINGS', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF059669), fontSize: 11)),
-          const SizedBox(height: 8),
-          ...vocabulary.map((item) {
-            if (item is! Map) return const SizedBox.shrink();
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(item['phrase']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                Text(item['meaningBn']?.toString() ?? '', style: const TextStyle(color: Color(0xFF047857), fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                Text(item['example']?.toString() ?? ''),
-                Text(item['exampleBn']?.toString() ?? '', style: Theme.of(context).textTheme.bodySmall),
-              ]),
-            );
-          }),
-          if ((aiLesson!['speakingPrompt'] ?? '').toString().isNotEmpty) ...[
-            const Divider(height: 24),
-            const Text('SPEAKING PRACTICE', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF059669), fontSize: 11)),
+    final skillsRaw = aiLesson!['skills'];
+    final skills = skillsRaw is Map ? skillsRaw : <String, dynamic>{};
+    final speakingRaw = skills['speaking'];
+    final speaking = speakingRaw is Map ? speakingRaw : <String, dynamic>{};
+    final listeningRaw = skills['listening'];
+    final listening = listeningRaw is Map ? listeningRaw : <String, dynamic>{};
+    final readingRaw = skills['reading'];
+    final reading = readingRaw is Map ? readingRaw : <String, dynamic>{};
+    final writingRaw = skills['writing'];
+    final writing = writingRaw is Map ? writingRaw : <String, dynamic>{};
+    final speakingTips = (speaking['tips'] as List? ?? []).map((e) => e.toString()).toList();
+    final writingTips = (writing['tips'] as List? ?? []).map((e) => e.toString()).toList();
+    final listeningScript = listening['script']?.toString() ?? '';
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Card(
+        margin: const EdgeInsets.only(bottom: 4),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(aiLesson!['lessonTitle']?.toString() ?? 'AI IELTS Lesson',
+                style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
             const SizedBox(height: 6),
-            Text(aiLesson!['speakingPrompt'].toString(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-          ],
-          if ((aiLesson!['modelAnswer'] ?? '').toString().isNotEmpty) ...[
-            const SizedBox(height: 10),
-            const Text('MODEL ANSWER', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11)),
-            const SizedBox(height: 4),
-            SelectableText(aiLesson!['modelAnswer'].toString(), style: const TextStyle(height: 1.5)),
-            if ((aiLesson!['modelAnswerBn'] ?? '').toString().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(aiLesson!['modelAnswerBn'].toString(), style: const TextStyle(height: 1.5, color: Color(0xFF047857))),
+            Text(aiLesson!['learningFocus']?.toString() ?? '', style: Theme.of(context).textTheme.bodyMedium),
+            if ((aiLesson!['explanationBn'] ?? '').toString().isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(aiLesson!['explanationBn'].toString(), style: const TextStyle(height: 1.55)),
             ],
-          ],
-          const SizedBox(height: 10),
-          OutlinedButton.icon(onPressed: _openTranslator, icon: const Icon(Icons.translate), label: const Text('Translate another sentence')),
-        ]),
+            const Divider(height: 26),
+            const Text('VOCABULARY & BANGLA MEANINGS',
+                style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF059669), fontSize: 11)),
+            const SizedBox(height: 8),
+            ...vocabulary.map((item) {
+              if (item is! Map) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(item['phrase']?.toString() ?? '',
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                  Text(item['meaningBn']?.toString() ?? '',
+                      style: const TextStyle(color: Color(0xFF047857), fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  Text(item['example']?.toString() ?? ''),
+                  Text(item['exampleBn']?.toString() ?? '', style: Theme.of(context).textTheme.bodySmall),
+                ]),
+              );
+            }),
+          ]),
+        ),
       ),
-    );
+      _skillPanel('SPEAKING PRACTICE', Icons.record_voice_over_rounded, [
+        if ((speaking['question'] ?? '').toString().isNotEmpty)
+          Text(speaking['question'].toString(), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        if ((speaking['sampleAnswer'] ?? '').toString().isNotEmpty) ...[
+          const SizedBox(height: 8),
+          const Text('MODEL ANSWER', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11)),
+          SelectableText(speaking['sampleAnswer'].toString(), style: const TextStyle(height: 1.5)),
+        ],
+        if ((speaking['sampleAnswerBn'] ?? '').toString().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(speaking['sampleAnswerBn'].toString(), style: const TextStyle(height: 1.5, color: Color(0xFF047857))),
+          ),
+        ...speakingTips.map((tip) => Padding(
+          padding: const EdgeInsets.only(top: 5),
+          child: Text('• $tip'),
+        )),
+        OutlinedButton.icon(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.mic),
+          label: const Text('Go to Voice practice'),
+        ),
+      ]),
+      _skillPanel('LISTENING PRACTICE', Icons.headphones_rounded, [
+        if (listeningScript.isNotEmpty) Text(listeningScript, style: const TextStyle(height: 1.5)),
+        if (listeningScript.isNotEmpty)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.tonalIcon(
+              onPressed: listeningAudioPlaying ? null : () => _playListening(listeningScript),
+              icon: Icon(listeningAudioPlaying ? Icons.volume_up : Icons.play_arrow_rounded),
+              label: Text(listeningAudioPlaying ? 'Playing…' : 'Play listening audio'),
+            ),
+          ),
+        ..._questionTiles(listening['questions']),
+      ]),
+      _skillPanel('READING PRACTICE', Icons.menu_book_rounded, [
+        if ((reading['passage'] ?? '').toString().isNotEmpty)
+          SelectableText(reading['passage'].toString(), style: const TextStyle(height: 1.55)),
+        ..._questionTiles(reading['questions']),
+      ]),
+      _skillPanel('WRITING PRACTICE', Icons.edit_note_rounded, [
+        if ((writing['task'] ?? '').toString().isNotEmpty)
+          Text(writing['task'].toString(), style: const TextStyle(fontWeight: FontWeight.w700)),
+        if ((writing['sampleAnswer'] ?? '').toString().isNotEmpty) ...[
+          const SizedBox(height: 8),
+          const Text('LEARNING SAMPLE', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11)),
+          SelectableText(writing['sampleAnswer'].toString(), style: const TextStyle(height: 1.5)),
+        ],
+        if ((writing['sampleAnswerBn'] ?? '').toString().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(writing['sampleAnswerBn'].toString(), style: const TextStyle(height: 1.5, color: Color(0xFF047857))),
+          ),
+        ...writingTips.map((tip) => Padding(
+          padding: const EdgeInsets.only(top: 5),
+          child: Text('• $tip'),
+        )),
+      ]),
+      if (aiLesson!['quiz'] is Map) ...[
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('LESSON QUICK CHECK', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF059669), fontSize: 11)),
+              const SizedBox(height: 6),
+              Text((aiLesson!['quiz'] as Map)['question']?.toString() ?? ''),
+              ...((aiLesson!['quiz'] as Map)['options'] as List? ?? []).map((option) => Text('• $option')),
+              Text('Answer: ${(aiLesson!['quiz'] as Map)['answer'] ?? ''}',
+                  style: const TextStyle(fontWeight: FontWeight.w800)),
+              Text((aiLesson!['quiz'] as Map)['explanationBn']?.toString() ?? ''),
+            ]),
+          ),
+        ),
+      ],
+      const SizedBox(height: 10),
+      OutlinedButton.icon(
+        onPressed: _openTranslator,
+        icon: const Icon(Icons.translate),
+        label: const Text('Translate another sentence'),
+      ),
+    ]);
   }
 
   @override
@@ -233,7 +396,7 @@ class _LessonScreenState extends State<LessonScreen> {
                 const SizedBox(height: 22),
                 Text(topic.title, style: const TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.w800)),
                 const SizedBox(height: 8),
-                if (widget.lessonNumber == 3 || widget.lessonNumber == 4) _onlineLessonCard(),
+                _onlineLessonCard(),
                 Text(q['prompt'], style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
                 if (q['context'] != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(q['context'], style: const TextStyle(fontSize: 17))),
                 const SizedBox(height: 22),
@@ -253,6 +416,12 @@ class _LessonScreenState extends State<LessonScreen> {
               ],
             ),
     );
+  }
+
+  @override
+  void dispose() {
+    lessonTts.stop();
+    super.dispose();
   }
 
   List<Widget> buildAnswer(Map<String, dynamic> q) {
