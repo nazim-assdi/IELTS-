@@ -299,11 +299,8 @@ class _LessonScreenState extends State<LessonScreen> {
           padding: const EdgeInsets.only(top: 5),
           child: Text('• $tip'),
         )),
-        OutlinedButton.icon(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.mic),
-          label: const Text('Go to Voice practice'),
-        ),
+        const Text('Tip: Open the Voice tab to practise this answer with the live IELTS examiner.',
+            style: TextStyle(fontSize: 12, color: Color(0xFF047857))),
       ]),
       _skillPanel('LISTENING PRACTICE', Icons.headphones_rounded, [
         if (listeningScript.isNotEmpty) Text(listeningScript, style: const TextStyle(height: 1.5)),
