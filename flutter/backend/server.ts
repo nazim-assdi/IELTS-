@@ -12,6 +12,12 @@ const configuredTextModel = (process.env.GEMINI_TEXT_MODEL || process.env.GEMINI
 const textModel = !configuredTextModel || /^(models\/)?gemini-2\.5-flash$/i.test(configuredTextModel)
   ? 'gemini-3.8-flash'
   : configuredTextModel.replace(/^models\//, '');
+const fallbackTextModels = (process.env.GEMINI_TEXT_FALLBACK_MODELS || 'gemini-3.6-flash,gemini-3.5-flash-lite')
+  .split(',')
+  .map((model) => model.trim().replace(/^models\//, ''))
+  .filter(Boolean)
+  .filter((model, index, all) => model !== textModel && all.indexOf(model) === index);
+const textModels = [textModel, ...fallbackTextModels];
 const liveModel = process.env.GEMINI_LIVE_MODEL || 'gemini-3.8-live';
 const MAX_LIVE_CONNECTIONS = Number(process.env.MAX_LIVE_CONNECTIONS || 4);
 const LIVE_SESSION_MS = Number(process.env.LIVE_SESSION_MS || 5 * 60 * 1000);
@@ -22,9 +28,61 @@ function client() {
   return new GoogleGenAI({ apiKey: key });
 }
 
+function getGeminiErrorStatus(error: unknown): number | undefined {
+  if (error && typeof error === 'object') {
+    const value = error as Record<string, unknown>;
+    for (const candidate of [value.status, value.statusCode, value.code]) {
+      const parsed = typeof candidate === 'number' ? candidate : Number(candidate);
+      if (Number.isInteger(parsed) && parsed >= 400 && parsed <= 599) return parsed;
+    }
+  }
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  const match = message.match(/(?:"code"\\s*:\\s*|status(?:\\s+code)?[^0-9]{0,12})([45]\\d\\d)/i)
+    || message.match(/\\b([45]\\d\\d)\\b/);
+  return match ? Number(match[1]) : undefined;
+}
+
+function isModelAvailabilityError(error: unknown): boolean {
+  const status = getGeminiErrorStatus(error);
+  return status !== undefined && [404, 429, 500, 502, 503, 504].includes(status);
+}
+
+function apiErrorStatus(error: unknown): number {
+  const status = getGeminiErrorStatus(error);
+  if (status === 429 || status === 503 || status === 504) return 503;
+  return status && status >= 400 && status < 600 ? status : 500;
+}
+
+function sendApiError(res: any, error: unknown, fallbackMessage: string) {
+  const status = apiErrorStatus(error);
+  const message = status === 503
+    ? 'The AI service is temporarily busy. Please wait a few seconds and try again.'
+    : error instanceof Error ? error.message : fallbackMessage;
+  res.status(status).json({ error: message, code: status });
+}
+
 async function generate(prompt: string) {
-  const response = await client().models.generateContent({ model: textModel, contents: prompt });
-  return response.text || '';
+  const ai = client();
+  let lastError: unknown;
+  for (const model of textModels) {
+    try {
+      const response = await ai.models.generateContent({ model, contents: prompt });
+      const output = response.text?.trim() || '';
+      if (!output) throw new Error('Gemini returned an empty response.');
+      if (model !== textModel) {
+        console.warn(`Primary text model unavailable; fallback model ${model} handled the request.`);
+      }
+      return output;
+    } catch (error) {
+      lastError = error;
+      if (!isModelAvailabilityError(error)) throw error;
+      console.warn(`Text model ${model} returned a temporary availability error; trying the next configured model.`);
+    }
+  }
+  const exhausted = new Error('All configured Gemini text models are temporarily unavailable. Please try again shortly.') as Error & { status?: number };
+  exhausted.status = 503;
+  if (lastError) (exhausted as Error & { cause?: unknown }).cause = lastError;
+  throw exhausted;
 }
 
 function parseJson(raw: string) {
@@ -37,6 +95,7 @@ app.get('/health', (_req, res) => res.json({
   service: 'IELTS HERO API',
   ready: Boolean(process.env.GEMINI_API_KEY),
   textModel,
+  fallbackTextModels,
   liveModel,
 }));
 
@@ -50,7 +109,7 @@ app.post('/api/gemini/examiner-chat', async (req, res) => {
     const reply = await generate(prompt);
     res.json({ reply });
   } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Gemini request failed' });
+    sendApiError(res, error, 'Gemini request failed');
   }
 });
 
@@ -60,7 +119,7 @@ app.post('/api/gemini/evaluate-speaking', async (req, res) => {
     const prompt = `Assess this IELTS Speaking ${testPart} response using IELTS public band descriptors. Return JSON only with keys overallBand (number), fluencyCoherence, lexicalResource, grammaticalRangeAccuracy, pronunciation, strengths (array), improvements (array), and improvedSample (string). Be realistic and explain that this is an AI estimate, not an official IELTS score.\n\nCandidate response:\n${candidateSpeech}`;
     res.json(parseJson(await generate(prompt)));
   } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Evaluation failed' });
+    sendApiError(res, error, 'Evaluation failed');
   }
 });
 
@@ -70,7 +129,7 @@ app.post('/api/gemini/generate-cue-card', async (req, res) => {
     const prompt = `Create one original IELTS Speaking Part 2 cue card in category ${category}. Return JSON only with topic (string), promptText (string with You should say bullets), and vocabularyHints (array of objects each with phrase and meaning).`;
     res.json(parseJson(await generate(prompt)));
   } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Cue card generation failed' });
+    sendApiError(res, error, 'Cue card generation failed');
   }
 });
 
@@ -88,7 +147,7 @@ app.post('/api/gemini/translate', async (req, res) => {
     const prompt = `Translate the following text accurately into ${targetLanguage}. Preserve the original meaning, tone, names, IELTS terminology, and formatting. If the target is Bengali, use natural, clear Bangla suitable for a learner. Return only the translation, with no introduction or quotation marks.\n\nTEXT:\n${text}`;
     res.json({ translation: await generate(prompt) });
   } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Translation failed' });
+    sendApiError(res, error, 'Translation failed');
   }
 });
 
@@ -144,7 +203,7 @@ app.post('/api/gemini/generate-lesson', async (req, res) => {
 Include exactly 5 vocabulary items, exactly 2 speaking tips, at least 1 listening question, at least 1 reading question, exactly 2 writing tips, and one quiz. Every multiple-choice answer must match one option character-for-character. Keep the output concise enough to render comfortably on a phone.`;
     res.json(parseJson(await generate(prompt)));
   } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Lesson generation failed' });
+    sendApiError(res, error, 'Lesson generation failed');
   }
 });
 
