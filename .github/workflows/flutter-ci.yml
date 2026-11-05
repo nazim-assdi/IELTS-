@@ -27,6 +27,20 @@ jobs:
           mkdir -p android/app/src/main/res/drawable
           cp config/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
           cp config/ielts_hero_icon.xml android/app/src/main/res/drawable/ielts_hero_icon.xml
+      - name: Align Kotlin bytecode target with Android Java 17
+        run: |
+          mkdir -p "$HOME/.gradle"
+          cat > "$HOME/.gradle/init.gradle" <<'EOF'
+          gradle.projectsEvaluated {
+            allprojects {
+              tasks.configureEach { task ->
+                if (task.class.name.contains('KotlinCompile') && task.hasProperty('kotlinOptions')) {
+                  task.kotlinOptions.jvmTarget = '17'
+                }
+              }
+            }
+          }
+          EOF
       - name: Install dependencies
         run: flutter pub get
       - name: Analyze
