@@ -66,7 +66,24 @@ async function generate(prompt: string) {
   let lastError: unknown;
   for (const model of textModels) {
     try {
-      const response = await ai.models.generateContent({ model, contents: prompt });
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          // Keep retries short so a busy primary model does not block trying fallbacks.
+          httpOptions: {
+            timeout: 45000,
+            retryOptions: {
+              attempts: 2,
+              initialDelay: 0.8,
+              maxDelay: 2,
+              expBase: 2,
+              jitter: 0.3,
+              httpStatusCodes: [408, 429, 500, 502, 503, 504],
+            },
+          },
+        },
+      });
       const output = response.text?.trim() || '';
       if (!output) throw new Error('Gemini returned an empty response.');
       if (model !== textModel) {
