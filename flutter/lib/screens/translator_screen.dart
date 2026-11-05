@@ -17,9 +17,10 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
   int direction = 0;
   bool loading = false;
 
-  GeminiApi get api => GeminiApi(
-    baseUrl: widget.prefs.getString('ielts_api_url') ?? defaultIeltsApiUrl,
-  );
+  GeminiApi get api {
+    final saved = widget.prefs.getString('ielts_api_url')?.trim() ?? '';
+    return GeminiApi(baseUrl: saved.isEmpty ? defaultIeltsApiUrl : saved);
+  }
 
   Future<void> translate() async {
     final text = input.text.trim();
@@ -69,7 +70,8 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
         controller: input,
         minLines: 4,
         maxLines: 8,
-        textCapitalization: direction == 0 ? TextCapitalization.sentences : TextCapitalization.sentences,
+        maxLength: 5000,
+        textCapitalization: TextCapitalization.sentences,
         decoration: InputDecoration(
           labelText: direction == 0 ? 'English text' : 'বাংলা লেখা',
           hintText: direction == 0 ? 'Enter an IELTS word, phrase or sentence…' : 'যে বাক্যটি ইংরেজিতে অনুবাদ করতে চান…',
