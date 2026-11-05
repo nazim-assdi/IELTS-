@@ -12,9 +12,14 @@ class CueCardsScreen extends StatefulWidget {
 class _CueCardsScreenState extends State<CueCardsScreen> {
   bool loading = false;
   Map<String, dynamic>? generated;
-  GeminiApi get api => GeminiApi(
-    baseUrl: widget.prefs.getString('ielts_api_url') ?? const String.fromEnvironment('IELTS_API_URL', defaultValue: defaultIeltsApiUrl),
-  );
+  GeminiApi get api {
+    final saved = widget.prefs.getString('ielts_api_url')?.trim() ?? '';
+    final compileTimeUrl = const String.fromEnvironment('IELTS_API_URL').trim();
+    final url = saved.isNotEmpty
+        ? saved
+        : compileTimeUrl.isNotEmpty ? compileTimeUrl : defaultIeltsApiUrl;
+    return GeminiApi(baseUrl: url);
+  }
 
   final cards = [
     {
