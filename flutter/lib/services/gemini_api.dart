@@ -38,7 +38,7 @@ class GeminiApi {
       _uri('/api/gemini/examiner-chat'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'history': history, 'message': message, 'testPart': part}),
-    ).timeout(const Duration(seconds: 60));
+    ).timeout(const Duration(seconds: 120));
     if (response.statusCode != 200) throw Exception(_error(response));
     return (jsonDecode(response.body) as Map<String, dynamic>)['reply']?.toString()
         ?? 'Could you tell me a little more?';
@@ -53,7 +53,7 @@ class GeminiApi {
       _uri('/api/gemini/evaluate-speaking'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'candidateSpeech': speech, 'testPart': part}),
-    ).timeout(const Duration(seconds: 60));
+    ).timeout(const Duration(seconds: 120));
     if (response.statusCode != 200) throw Exception(_error(response));
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
@@ -64,7 +64,7 @@ class GeminiApi {
       _uri('/api/gemini/generate-cue-card'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'category': category}),
-    ).timeout(const Duration(seconds: 60));
+    ).timeout(const Duration(seconds: 120));
     if (response.statusCode != 200) throw Exception(_error(response));
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
