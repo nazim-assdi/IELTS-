@@ -1,0 +1,60 @@
+name: Flutter CI
+on:
+  push:
+    paths:
+      - 'flutter/**'
+      - '.github/workflows/flutter-ci.yml'
+  pull_request:
+    paths:
+      - 'flutter/**'
+      - '.github/workflows/flutter-ci.yml'
+  workflow_dispatch:
+jobs:
+  analyze-and-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: flutter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Generate Android and web platform folders
+        run: flutter create . --platforms=android,web
+      - name: Apply Android app identity and microphone permissions
+        run: |
+          mkdir -p android/app/src/main/res/drawable
+          cp config/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+          cp config/ielts_hero_icon.xml android/app/src/main/res/drawable/ielts_hero_icon.xml
+      - name: Align Java and Kotlin bytecode targets to Java 17
+        run: |
+          mkdir -p "$HOME/.gradle"
+          cat > "$HOME/.gradle/init.gradle" <<'EOF'
+          import org.gradle.api.tasks.compile.JavaCompile
+
+          gradle.projectsEvaluated {
+            allprojects {
+              tasks.withType(JavaCompile).configureEach {
+                sourceCompatibility = JavaVersion.VERSION_17.toString()
+                targetCompatibility = JavaVersion.VERSION_17.toString()
+              }
+              tasks.configureEach { task ->
+                if (task.class.name.contains('KotlinCompile') && task.hasProperty('kotlinOptions')) {
+                  task.kotlinOptions.jvmTarget = '17'
+                }
+              }
+            }
+          }
+          EOF
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+      - name: Build Android APK
+        run: flutter build apk --release
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ielts-hero-android-apk
+          path: flutter/build/app/outputs/flutter-apk/app-release.apk
