@@ -95,6 +95,8 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
         await startMicrophone();
       } else if (type == 'audio') {
         final bytes = base64Decode(payload['data']?.toString() ?? '');
+        // Ignore tiny/invalid fragments; PCM16 audio must contain complete samples.
+        if (bytes.length < 32) return;
         audioQueue = audioQueue.then((_) async {
           final activePlayer = player;
           if (activePlayer != null && bytes.isNotEmpty) {
@@ -166,6 +168,11 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
     await audioSubscription?.cancel();
     audioSubscription = null;
     try { await recorder.stop(); } catch (_) {}
+    // Tell Gemini that the current microphone stream has ended so VAD can close the turn.
+    final ws = channel;
+    if (connected && ws != null) {
+      try { ws.sink.add(jsonEncode({'type': 'audio_stream_end'})); } catch (_) {}
+    }
     if (mounted) setState(() { microphoneOn = false; if (connected) status = 'Connected • Microphone paused'; });
   }
 
