@@ -27,8 +27,10 @@ class _VoiceScreenState extends State<VoiceScreen> {
   @override
   void initState() {
     super.initState();
-    apiUrl = widget.prefs.getString('ielts_api_url') ?? defaultIeltsApiUrl;
-    if (apiUrl.trim().isEmpty) apiUrl = defaultIeltsApiUrl;
+    // Use the official Render backend configured for this IELTS HERO build.
+    // This also migrates an older saved API URL to the current service.
+    apiUrl = defaultIeltsApiUrl;
+    widget.prefs.setString('ielts_api_url', defaultIeltsApiUrl);
     api = GeminiApi(baseUrl: apiUrl);
     _initSpeech();
     _initTts();
