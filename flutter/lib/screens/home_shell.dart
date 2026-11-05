@@ -6,6 +6,7 @@ import 'lesson_screen.dart';
 import 'voice_screen.dart';
 import 'cue_cards_screen.dart';
 import 'vocabulary_screen.dart';
+import 'translator_screen.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key, required this.prefs, required this.themeName, required this.onThemeChanged});
@@ -28,6 +29,7 @@ class _HomeShellState extends State<HomeShell> {
       VoiceScreen(prefs: widget.prefs),
       CueCardsScreen(prefs: widget.prefs),
       const VocabularyScreen(),
+      TranslatorScreen(prefs: widget.prefs),
     ];
     return Scaffold(
       appBar: AppBar(
@@ -52,6 +54,7 @@ class _HomeShellState extends State<HomeShell> {
           NavigationDestination(icon: Icon(Icons.mic_none), selectedIcon: Icon(Icons.mic), label: 'Voice'),
           NavigationDestination(icon: Icon(Icons.style_outlined), selectedIcon: Icon(Icons.style), label: 'Cue Cards'),
           NavigationDestination(icon: Icon(Icons.auto_stories_outlined), selectedIcon: Icon(Icons.auto_stories), label: 'Vocabulary'),
+          NavigationDestination(icon: Icon(Icons.translate_rounded), selectedIcon: Icon(Icons.translate), label: 'Translate'),
         ],
       ),
     );
@@ -64,7 +67,12 @@ class _HomeShellState extends State<HomeShell> {
 
   Widget learningPath() {
     final units = List.generate(10, (i) => (section - 1) * 10 + i + 1);
-    final doneCount = units.where((n) => progress.completed.contains('u$n-l1') && progress.completed.contains('u$n-l2')).length;
+    final doneCount = units.where((n) =>
+      progress.completed.contains('u$n-l1') &&
+      progress.completed.contains('u$n-l2') &&
+      progress.completed.contains('u$n-l3') &&
+      progress.completed.contains('u$n-l4')
+    ).length;
     return RefreshIndicator(
       onRefresh: () async => setState(() {}),
       child: ListView(
@@ -81,7 +89,7 @@ class _HomeShellState extends State<HomeShell> {
               const Text('YOUR IELTS JOURNEY', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
               const Spacer(),
               const Text('Small steps. Big band scores.', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
-              Text('${progress.xp} XP earned • ${progress.completed.length}/200 lessons completed', style: const TextStyle(color: Colors.white)),
+              Text('${progress.xp} XP earned • ${progress.completed.length}/400 lessons completed', style: const TextStyle(color: Colors.white)),
             ]),
           ),
           const SizedBox(height: 16),
@@ -141,7 +149,7 @@ class _HomeShellState extends State<HomeShell> {
 
   Widget _unitTile(int number) {
     final topic = unitTopics[number - 1];
-    final done = progress.completed.contains('u$number-l1') && progress.completed.contains('u$number-l2');
+    final done = List.generate(4, (i) => i + 1).every((lesson) => progress.completed.contains('u$number-l$lesson'));
     return Padding(
       padding: const EdgeInsets.only(top: 10),
       child: Card(
@@ -156,8 +164,10 @@ class _HomeShellState extends State<HomeShell> {
           title: Text(topic.title, style: const TextStyle(fontWeight: FontWeight.w800)),
           subtitle: Text('${topic.badge} • ${topic.description}', maxLines: 2, overflow: TextOverflow.ellipsis),
           children: [
-            _lessonButton(number, 1, 'Practice', 'Core Collocations & Accuracy'),
-            _lessonButton(number, 2, 'Mastery', 'Examiner Shadowing & Inversions'),
+            _lessonButton(number, 1, 'Foundations', 'Core collocations and accuracy'),
+            _lessonButton(number, 2, 'Mastery', 'Grammar patterns and natural delivery'),
+            _lessonButton(number, 3, 'Vocabulary Lab', 'AI-generated vocabulary with Bangla meanings'),
+            _lessonButton(number, 4, 'Speaking Challenge', 'AI sample answer, translation and quiz'),
           ],
         ),
       ),
