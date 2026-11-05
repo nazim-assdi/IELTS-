@@ -37,8 +37,8 @@ function getGeminiErrorStatus(error: unknown): number | undefined {
     }
   }
   const message = error instanceof Error ? error.message : String(error ?? '');
-  const match = message.match(/(?:"code"\\s*:\\s*|status(?:\\s+code)?[^0-9]{0,12})([45]\\d\\d)/i)
-    || message.match(/\\b([45]\\d\\d)\\b/);
+  const match = message.match(/(?:"code"\s*:\s*|status(?:\s+code)?[^0-9]{0,12})([45]\d\d)/i)
+    || message.match(/\b([45]\d\d)\b/);
   return match ? Number(match[1]) : undefined;
 }
 
