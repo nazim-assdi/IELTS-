@@ -338,23 +338,6 @@ class _LessonScreenState extends State<LessonScreen> {
           child: Text('• $tip'),
         )),
       ]),
-      if (aiLesson!['quiz'] is Map) ...[
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('LESSON QUICK CHECK', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF059669), fontSize: 11)),
-              const SizedBox(height: 6),
-              Text((aiLesson!['quiz'] as Map)['question']?.toString() ?? ''),
-              ...((aiLesson!['quiz'] as Map)['options'] as List? ?? []).map((option) => Text('• $option')),
-              Text('Answer: ${(aiLesson!['quiz'] as Map)['answer'] ?? ''}',
-                  style: const TextStyle(fontWeight: FontWeight.w800)),
-              Text((aiLesson!['quiz'] as Map)['explanationBn']?.toString() ?? ''),
-            ]),
-          ),
-        ),
-      ],
       const SizedBox(height: 10),
       OutlinedButton.icon(
         onPressed: _openTranslator,
