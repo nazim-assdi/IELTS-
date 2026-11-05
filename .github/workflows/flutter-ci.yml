@@ -27,12 +27,18 @@ jobs:
           mkdir -p android/app/src/main/res/drawable
           cp config/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
           cp config/ielts_hero_icon.xml android/app/src/main/res/drawable/ielts_hero_icon.xml
-      - name: Align Kotlin bytecode target with Android Java 17
+      - name: Align Java and Kotlin bytecode targets to Java 17
         run: |
           mkdir -p "$HOME/.gradle"
           cat > "$HOME/.gradle/init.gradle" <<'EOF'
+          import org.gradle.api.tasks.compile.JavaCompile
+
           gradle.projectsEvaluated {
             allprojects {
+              tasks.withType(JavaCompile).configureEach {
+                sourceCompatibility = JavaVersion.VERSION_17.toString()
+                targetCompatibility = JavaVersion.VERSION_17.toString()
+              }
               tasks.configureEach { task ->
                 if (task.class.name.contains('KotlinCompile') && task.hasProperty('kotlinOptions')) {
                   task.kotlinOptions.jvmTarget = '17'
