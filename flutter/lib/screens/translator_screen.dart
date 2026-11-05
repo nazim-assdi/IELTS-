@@ -14,6 +14,7 @@ class TranslatorScreen extends StatefulWidget {
 class _TranslatorScreenState extends State<TranslatorScreen> {
   final input = TextEditingController();
   String result = '';
+  String errorMessage = '';
   int direction = 0;
   bool loading = false;
 
@@ -25,7 +26,7 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
   Future<void> translate() async {
     final text = input.text.trim();
     if (text.isEmpty || loading) return;
-    setState(() { loading = true; result = ''; });
+    setState(() { loading = true; result = ''; errorMessage = ''; });
     try {
       final translated = await api.translateText(
         text: text,
@@ -34,9 +35,9 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
       if (mounted) setState(() => result = translated);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
-        );
+        final message = error.toString().replaceFirst('Exception: ', '');
+        setState(() => errorMessage = message);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
       if (mounted) setState(() => loading = false);
@@ -63,7 +64,7 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
           ButtonSegment(value: 1, label: Text('বাংলা → English')),
         ],
         selected: {direction},
-        onSelectionChanged: loading ? null : (values) => setState(() { direction = values.first; result = ''; }),
+        onSelectionChanged: loading ? null : (values) => setState(() { direction = values.first; result = ''; errorMessage = ''; }),
       ),
       const SizedBox(height: 14),
       TextField(
@@ -87,6 +88,20 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
             : const Icon(Icons.translate_rounded),
         label: Text(loading ? 'Translating…' : 'Translate'),
       ),
+      if (errorMessage.isNotEmpty) ...[
+        const SizedBox(height: 14),
+        Card(
+          color: Theme.of(context).colorScheme.errorContainer,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(Icons.error_outline, color: Theme.of(context).colorScheme.onErrorContainer),
+              const SizedBox(width: 10),
+              Expanded(child: Text(errorMessage, style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer))),
+            ]),
+          ),
+        ),
+      ],
       if (result.isNotEmpty) ...[
         const SizedBox(height: 18),
         Card(
