@@ -20,6 +20,9 @@ class GeminiApi {
       final body = jsonDecode(response.body);
       if (body is Map && body['error'] != null) return body['error'].toString();
     } catch (_) {}
+    if (response.statusCode == 429 || response.statusCode == 503) {
+      return 'The AI service is busy right now. Please wait a few seconds and try again.';
+    }
     return 'Server error (${response.statusCode}). Please try again.';
   }
 
@@ -75,9 +78,11 @@ class GeminiApi {
       _uri('/api/gemini/translate'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'text': text, 'targetLanguage': targetLanguage}),
-    ).timeout(const Duration(seconds: 60));
+    ).timeout(const Duration(seconds: 120));
     if (response.statusCode != 200) throw Exception(_error(response));
-    return (jsonDecode(response.body) as Map<String, dynamic>)['translation']?.toString() ?? '';
+    final translated = (jsonDecode(response.body) as Map<String, dynamic>)['translation']?.toString() ?? '';
+    if (translated.trim().isEmpty) throw Exception('The translation service returned an empty result. Please try again.');
+    return translated;
   }
 
   Future<Map<String, dynamic>> generateLesson({
