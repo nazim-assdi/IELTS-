@@ -7,7 +7,11 @@ import { WebSocket, WebSocketServer } from 'ws';
 const app = express();
 app.use(express.json({ limit: '2mb' }));
 const port = Number(process.env.PORT || 3000);
-const textModel = process.env.GEMINI_TEXT_MODEL || 'gemini-2.5-flash';
+const configuredTextModel = (process.env.GEMINI_TEXT_MODEL || process.env.GEMINI_MODEL || '').trim();
+// Gemini 2.5 Flash is restricted for new API projects. Keep old Render env values from breaking requests.
+const textModel = !configuredTextModel || /^(models\/)?gemini-2\.5-flash$/i.test(configuredTextModel)
+  ? 'gemini-3.8-flash'
+  : configuredTextModel.replace(/^models\//, '');
 const liveModel = process.env.GEMINI_LIVE_MODEL || 'gemini-3.8-live';
 const MAX_LIVE_CONNECTIONS = Number(process.env.MAX_LIVE_CONNECTIONS || 4);
 const LIVE_SESSION_MS = Number(process.env.LIVE_SESSION_MS || 5 * 60 * 1000);
@@ -190,17 +194,28 @@ liveWss.on('connection', (ws, request) => {
   ws.on('error', cleanup);
 
   ws.on('message', (raw) => {
-    if (!session) return;
+    if (!session) {
+      send({ type: 'error', message: 'Live AI is still starting. Please try speaking again.' });
+      return;
+    }
     try {
       const message = JSON.parse(raw.toString());
+      let pending: unknown;
       if (message.type === 'audio' && typeof message.data === 'string' && message.data.length <= 96 * 1024) {
-        session.sendRealtimeInput({
+        pending = session.sendRealtimeInput({
           audio: { data: message.data, mimeType: 'audio/pcm;rate=16000' },
         });
       } else if (message.type === 'audio_stream_end') {
-        session.sendRealtimeInput({ audioStreamEnd: true });
+        pending = session.sendRealtimeInput({ audioStreamEnd: true });
       } else if (message.type === 'text' && typeof message.text === 'string' && message.text.length <= 2000) {
-        session.sendRealtimeInput({ text: message.text });
+        pending = session.sendRealtimeInput({ text: message.text });
+      }
+      // The GenAI SDK may reject asynchronously; forward those errors to the app instead of
+      // leaving a failed audio send as an unhandled promise.
+      if (pending && typeof (pending as any).then === 'function') {
+        void Promise.resolve(pending).catch((error) => {
+          send({ type: 'error', message: error instanceof Error ? error.message : 'Could not send live audio to Gemini.' });
+        });
       }
     } catch (error) {
       send({ type: 'error', message: error instanceof Error ? error.message : 'Invalid live audio packet.' });
@@ -213,6 +228,13 @@ liveWss.on('connection', (ws, request) => {
         model: liveModel,
         config: {
           responseModalities: [Modality.AUDIO],
+          realtimeInputConfig: {
+            automaticActivityDetection: {
+              disabled: false,
+              prefixPaddingMs: 300,
+              silenceDurationMs: 800,
+            },
+          },
           inputAudioTranscription: {},
           outputAudioTranscription: {},
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Aoede' } } },
