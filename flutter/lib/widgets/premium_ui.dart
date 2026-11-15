@@ -62,7 +62,10 @@ class PremiumSectionHeading extends StatelessWidget {
         letterSpacing: -.25,
       ))),
       if (action != null)
-        TextButton(onPressed: onTap, child: Text(action!)),
+        if (onTap != null)
+          TextButton(onPressed: onTap, child: Text(action!))
+        else
+          Text(action!, style: const TextStyle(color: IeltsPalette.emerald, fontSize: 11, fontWeight: FontWeight.w900)),
     ]),
   );
 }
