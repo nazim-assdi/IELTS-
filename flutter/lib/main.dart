@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/home_shell.dart';
+import 'theme/ielts_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,6 +12,7 @@ Future<void> main() async {
 class IeltsHeroApp extends StatefulWidget {
   const IeltsHeroApp({super.key, required this.prefs});
   final SharedPreferences prefs;
+
   @override
   State<IeltsHeroApp> createState() => _IeltsHeroAppState();
 }
@@ -32,18 +34,23 @@ class _IeltsHeroAppState extends State<IeltsHeroApp> {
   @override
   Widget build(BuildContext context) {
     final dark = themeName == 'midnight-slate';
-    const seed = Color(0xFF059669);
+    final background = switch (themeName) {
+      'soft-sage' => const Color(0xFFF0F6F3),
+      'paper-warm' => const Color(0xFFF7F6F2),
+      _ => IeltsPalette.canvas,
+    };
     return MaterialApp(
       title: 'IELTS HERO',
       debugShowCheckedModeBanner: false,
       themeMode: dark ? ThemeMode.dark : ThemeMode.light,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.light),
-        useMaterial3: true,
-        scaffoldBackgroundColor: themeName == 'soft-sage' ? const Color(0xFFF2F7F4) : const Color(0xFFFAF6EE),
+      theme: IeltsTheme.light(background: background),
+      darkTheme: IeltsTheme.dark(),
+      themeAnimationDuration: const Duration(milliseconds: 280),
+      home: HomeShell(
+        prefs: widget.prefs,
+        themeName: themeName,
+        onThemeChanged: setTheme,
       ),
-      darkTheme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark), useMaterial3: true),
-      home: HomeShell(prefs: widget.prefs, themeName: themeName, onThemeChanged: setTheme),
     );
   }
 }
