@@ -5,6 +5,8 @@ import '../data/curriculum.dart';
 import '../services/gemini_api.dart';
 import '../services/progress_store.dart';
 import 'translator_screen.dart';
+import '../theme/ielts_theme.dart';
+import '../widgets/premium_ui.dart';
 
 class LessonScreen extends StatefulWidget {
   const LessonScreen({super.key, required this.unitNumber, required this.lessonNumber, required this.prefs});
@@ -351,51 +353,138 @@ class _LessonScreenState extends State<LessonScreen> {
   @override
   Widget build(BuildContext context) {
     final q = questions[index];
+    final progressValue = (index + 1) / questions.length;
+    final correct = selected == q['answer'] || (q['type'] == 'shadow' && selected == 'done');
     return Scaffold(
       appBar: AppBar(
-        title: Text('Unit ${widget.unitNumber} • Lesson ${widget.lessonNumber}'),
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('UNIT ${widget.unitNumber.toString().padLeft(2, '0')}', style: const TextStyle(color: IeltsPalette.emerald, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+          Text('Lesson ${widget.lessonNumber} · ${['Foundations', 'Mastery', 'Vocabulary lab', 'Speaking challenge'][widget.lessonNumber - 1]}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+        ]),
         actions: [
-          Padding(padding: const EdgeInsets.only(right: 16), child: Center(child: Text('${index + 1}/${questions.length}', style: const TextStyle(fontWeight: FontWeight.bold)))),
+          Padding(
+            padding: const EdgeInsets.only(right: 15),
+            child: Center(child: PremiumChip('${index + 1}/${questions.length}', icon: Icons.flag_rounded)),
+          ),
         ],
       ),
       body: finished
-          ? Center(child: Padding(
-              padding: const EdgeInsets.all(24),
+        ? Center(child: Padding(
+            padding: const EdgeInsets.all(25),
+            child: Container(
+              padding: const EdgeInsets.all(25),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(26), border: Border.all(color: IeltsPalette.line)),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.emoji_events_rounded, size: 76, color: Color(0xFFF59E0B)),
-                const SizedBox(height: 16),
-                const Text('Lesson completed!', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
-                Text('You scored $score/${questions.length} • XP and gems added to your account.'),
-                const SizedBox(height: 20),
-                FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Continue learning')),
+                Container(
+                  width: 82, height: 82,
+                  decoration: const BoxDecoration(color: Color(0xFFFFF2D9), shape: BoxShape.circle),
+                  child: const Icon(Icons.emoji_events_rounded, color: IeltsPalette.gold, size: 43),
+                ),
+                const SizedBox(height: 17),
+                const Text('Lesson completed', style: TextStyle(fontSize: 23, color: IeltsPalette.ink, fontWeight: FontWeight.w900, letterSpacing: -.5)),
+                const SizedBox(height: 7),
+                Text('You scored $score/${questions.length}. Your progress and rewards have been saved.', textAlign: TextAlign.center, style: const TextStyle(color: IeltsPalette.muted, height: 1.4, fontSize: 12)),
+                const SizedBox(height: 17),
+                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const PremiumChip('+XP EARNED', icon: Icons.bolt_rounded, color: IeltsPalette.gold),
+                  const SizedBox(width: 8),
+                  const PremiumChip('GEMS ADDED', icon: Icons.diamond_rounded, color: Color(0xFF448AC4)),
+                ]),
+                const SizedBox(height: 22),
+                SizedBox(width: double.infinity, child: FilledButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                  label: const Text('Continue learning'),
+                )),
               ]),
-            ))
-          : ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                LinearProgressIndicator(value: (index + 1) / questions.length, minHeight: 7, borderRadius: BorderRadius.circular(10)),
-                const SizedBox(height: 22),
-                Text(topic.title, style: const TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.w800)),
-                const SizedBox(height: 8),
-                _onlineLessonCard(),
-                Text(q['prompt'], style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-                if (q['context'] != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(q['context'], style: const TextStyle(fontSize: 17))),
-                const SizedBox(height: 22),
-                ...buildAnswer(q),
-                if (checked && q['why'] != null && q['why'].toString().isNotEmpty)
-                  Card(color: Theme.of(context).colorScheme.secondaryContainer, child: Padding(padding: const EdgeInsets.all(14), child: Text(q['why'].toString()))),
-                if (checked)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(
-                      selected == q['answer'] || (q['type'] == 'shadow' && selected == 'done') ? 'Correct! / Well done!' : 'Not quite. Review the correct answer.',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: selected == q['answer'] || (q['type'] == 'shadow' && selected == 'done') ? Colors.green : Colors.orange),
+            ),
+          ))
+        : ListView(
+            padding: const EdgeInsets.fromLTRB(18, 17, 18, 30),
+            children: [
+              Row(children: [
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('YOUR LEARNING SESSION', style: TextStyle(color: IeltsPalette.emerald, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                  const SizedBox(height: 4),
+                  Text(topic.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: IeltsPalette.ink)),
+                ])),
+                PremiumChip('${(progressValue * 100).round()}%'),
+              ]),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: LinearProgressIndicator(
+                  value: progressValue,
+                  minHeight: 7,
+                  color: IeltsPalette.emerald,
+                  backgroundColor: const Color(0xFFE5EDE9),
+                ),
+              ),
+              const SizedBox(height: 17),
+              _onlineLessonCard(),
+              const SizedBox(height: 19),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: IeltsPalette.line),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    PremiumChip('PRACTICE ${index + 1}', icon: Icons.edit_note_rounded),
+                    const Spacer(),
+                    if (checked) PremiumChip(correct ? 'CORRECT' : 'REVIEW', color: correct ? IeltsPalette.emerald : IeltsPalette.gold),
+                  ]),
+                  const SizedBox(height: 13),
+                  Text(q['prompt']?.toString() ?? 'Complete the practice task', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: IeltsPalette.ink, height: 1.2, letterSpacing: -.35)),
+                  if (q['context'] != null) ...[
+                    const SizedBox(height: 11),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: const Color(0xFFF5F8F7), borderRadius: BorderRadius.circular(15)),
+                      child: Text(q['context'].toString(), style: const TextStyle(color: IeltsPalette.inkSoft, fontSize: 14, height: 1.45)),
+                    ),
+                  ],
+                  const SizedBox(height: 15),
+                  ...buildAnswer(q),
+                  if (checked && q['why'] != null && q['why'].toString().isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(13),
+                      decoration: BoxDecoration(color: IeltsPalette.mint, borderRadius: BorderRadius.circular(14)),
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Icon(Icons.lightbulb_outline_rounded, color: IeltsPalette.emerald, size: 18),
+                        const SizedBox(width: 9),
+                        Expanded(child: Text(q['why'].toString(), style: const TextStyle(color: IeltsPalette.emeraldDeep, fontSize: 12, height: 1.4))),
+                      ]),
+                    ),
+                  ],
+                  if (checked) ...[
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      Icon(correct ? Icons.check_circle_rounded : Icons.info_outline_rounded, color: correct ? IeltsPalette.emerald : IeltsPalette.gold, size: 18),
+                      const SizedBox(width: 7),
+                      Expanded(child: Text(
+                        correct ? 'Well done! Your answer is correct.' : 'Review the explanation and keep practising.',
+                        style: TextStyle(fontWeight: FontWeight.w800, color: correct ? IeltsPalette.emerald : IeltsPalette.inkSoft, fontSize: 11),
+                      )),
+                    ]),
+                  ],
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: checked ? next : check,
+                      icon: Icon(checked ? Icons.arrow_forward_rounded : Icons.check_rounded),
+                      label: Text(checked ? (index == questions.length - 1 ? 'Finish lesson' : 'Continue') : 'Check my answer'),
                     ),
                   ),
-                const SizedBox(height: 28),
-                FilledButton(onPressed: checked ? next : check, child: Text(checked ? (index == questions.length - 1 ? 'Finish lesson' : 'Continue') : 'Check answer')),
-              ],
-            ),
+                ]),
+              ),
+            ],
+          ),
     );
   }
 
