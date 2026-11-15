@@ -87,10 +87,9 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(17), border: Border.all(color: IeltsPalette.line)),
         child: Row(children: [
           Expanded(child: _languageButton(
-            label: 'English',
-            subtitle: 'SOURCE',
-            selected: direction == 0,
-            onTap: () => setState(() { direction = 0; result = ''; errorMessage = ''; }),
+            label: direction == 0 ? 'English' : 'বাংলা',
+            subtitle: 'FROM',
+            target: false,
           )),
           IconButton(
             tooltip: 'Switch languages',
@@ -99,10 +98,9 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
             icon: const Icon(Icons.swap_horiz_rounded),
           ),
           Expanded(child: _languageButton(
-            label: 'বাংলা',
-            subtitle: 'TARGET',
-            selected: direction == 1,
-            onTap: () => setState(() { direction = 1; result = ''; errorMessage = ''; }),
+            label: direction == 0 ? 'বাংলা' : 'English',
+            subtitle: 'TRANSLATE TO',
+            target: true,
           )),
         ]),
       ),
@@ -227,22 +225,18 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
   Widget _languageButton({
     required String label,
     required String subtitle,
-    required bool selected,
-    required VoidCallback onTap,
-  }) => Material(
-    color: selected ? IeltsPalette.mint : Colors.transparent,
-    borderRadius: BorderRadius.circular(13),
-    child: InkWell(
+    required bool target,
+  }) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
+    decoration: BoxDecoration(
+      color: target ? IeltsPalette.mint : const Color(0xFFF7FAF9),
       borderRadius: BorderRadius.circular(13),
-      onTap: loading ? null : onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
-        child: Column(children: [
-          Text(subtitle, style: TextStyle(color: selected ? IeltsPalette.emerald : IeltsPalette.muted, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 1)),
-          const SizedBox(height: 4),
-          Text(label, style: TextStyle(color: selected ? IeltsPalette.emeraldDeep : IeltsPalette.inkSoft, fontWeight: FontWeight.w900, fontSize: 14)),
-        ]),
-      ),
+      border: Border.all(color: target ? IeltsPalette.emerald.withValues(alpha: .2) : IeltsPalette.line),
     ),
+    child: Column(children: [
+      Text(subtitle, style: TextStyle(color: target ? IeltsPalette.emerald : IeltsPalette.muted, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: .8)),
+      const SizedBox(height: 4),
+      Text(label, style: TextStyle(color: target ? IeltsPalette.emeraldDeep : IeltsPalette.inkSoft, fontWeight: FontWeight.w900, fontSize: 14)),
+    ]),
   );
 }
