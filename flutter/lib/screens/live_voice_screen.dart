@@ -4,6 +4,8 @@ import 'package:audio_stream_player/audio_stream_player.dart';
 import 'package:flutter/material.dart';
 import 'package:record/record.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import '../theme/ielts_theme.dart';
+import '../widgets/premium_ui.dart';
 
 class LiveVoiceScreen extends StatefulWidget {
   const LiveVoiceScreen({super.key, required this.baseUrl, required this.initialPart});
@@ -226,98 +228,165 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Real-time IELTS Voice Chat')),
+    appBar: AppBar(
+      title: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('LIVE SPEAKING STUDIO', style: TextStyle(color: IeltsPalette.emerald, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+        Text('Real-time voice chat', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+      ]),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 15),
+          child: Center(child: PremiumChip(connected ? 'LIVE' : connecting ? 'CONNECTING' : 'OFFLINE',
+            icon: connected ? Icons.circle : connecting ? Icons.sync_rounded : Icons.circle_outlined,
+            color: connected ? IeltsPalette.emerald : IeltsPalette.gold)),
+        ),
+      ],
+    ),
     body: Column(children: [
       Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Talk naturally with your AI IELTS examiner. The AI listens and answers with live voice; you can speak over it to interrupt.', style: TextStyle(height: 1.45)),
-          const SizedBox(height: 12),
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'Part 1', label: Text('Part 1')),
-              ButtonSegment(value: 'Part 2', label: Text('Part 2')),
-              ButtonSegment(value: 'Part 3', label: Text('Part 3')),
-            ],
-            selected: {part},
-            onSelectionChanged: connected || connecting ? null : (values) => setState(() => part = values.first),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 13),
+        child: Container(
+          padding: const EdgeInsets.all(17),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF17364A), Color(0xFF1B5D57)],
+            ),
+            borderRadius: BorderRadius.circular(22),
           ),
-          const SizedBox(height: 10),
-          Row(children: [
-            Icon(connected ? Icons.cloud_done : connecting ? Icons.sync : Icons.cloud_off, color: connected ? Colors.green : Colors.orange),
-            const SizedBox(width: 8),
-            Expanded(child: Text(status, style: const TextStyle(fontWeight: FontWeight.w700))),
-            if (examinerSpeaking) const Padding(padding: EdgeInsets.only(left: 8), child: Icon(Icons.graphic_eq, color: Color(0xFF059669))),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(
+                height: 42, width: 42,
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: .13), borderRadius: BorderRadius.circular(14)),
+                child: Icon(examinerSpeaking ? Icons.graphic_eq_rounded : Icons.headset_mic_rounded, color: const Color(0xFFE7C887), size: 22),
+              ),
+              const SizedBox(width: 11),
+              const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('DR. ARTHUR JAMES', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13)),
+                SizedBox(height: 3),
+                Text('Your AI speaking examiner', style: TextStyle(color: Colors.white70, fontSize: 10)),
+              ])),
+              if (examinerSpeaking) const PremiumChip('SPEAKING', color: Color(0xFFB7E5D2)),
+            ]),
+            const SizedBox(height: 14),
+            Text(status, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 11)),
+            const SizedBox(height: 11),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'Part 1', label: Text('Part 1')),
+                ButtonSegment(value: 'Part 2', label: Text('Part 2')),
+                ButtonSegment(value: 'Part 3', label: Text('Part 3')),
+              ],
+              selected: {part},
+              onSelectionChanged: connected || connecting ? null : (values) => setState(() => part = values.first),
+              style: SegmentedButton.styleFrom(
+                selectedBackgroundColor: Colors.white,
+                selectedForegroundColor: IeltsPalette.emeraldDeep,
+                foregroundColor: Colors.white,
+                side: BorderSide(color: Colors.white.withValues(alpha: .25)),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
           ]),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        child: Row(children: [
+          const Text('Conversation', style: TextStyle(color: IeltsPalette.ink, fontWeight: FontWeight.w900, fontSize: 14)),
+          const Spacer(),
+          Text('${transcript.length} messages', style: const TextStyle(color: IeltsPalette.muted, fontSize: 10, fontWeight: FontWeight.w700)),
         ]),
       ),
-      const Divider(height: 1),
+      const SizedBox(height: 8),
       Expanded(
         child: transcript.isEmpty
-            ? Center(child: Padding(
-                padding: const EdgeInsets.all(28),
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.record_voice_over_rounded, size: 64, color: Theme.of(context).colorScheme.primary),
-                  const SizedBox(height: 12),
-                  const Text('Your live conversation will appear here.', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 5),
-                  const Text('Tap Start Live Chat and answer the examiner aloud.', textAlign: TextAlign.center),
-                ]),
-              ))
-            : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: transcript.length,
-                itemBuilder: (context, index) {
-                  final item = transcript[index];
-                  final isUser = item['speaker'] == 'You';
-                  return Align(
-                    alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      constraints: const BoxConstraints(maxWidth: 620),
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(13),
-                      decoration: BoxDecoration(
-                        color: isUser ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(16),
+          ? Center(child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  height: 84, width: 84,
+                  decoration: BoxDecoration(color: IeltsPalette.mint, borderRadius: BorderRadius.circular(28)),
+                  child: const Icon(Icons.record_voice_over_rounded, size: 39, color: IeltsPalette.emerald),
+                ),
+                const SizedBox(height: 15),
+                const Text('Your conversation starts here', style: TextStyle(color: IeltsPalette.ink, fontWeight: FontWeight.w900, fontSize: 16)),
+                const SizedBox(height: 6),
+                const Text('Start the live session, listen to the examiner and answer naturally. Your transcript will appear in this space.', textAlign: TextAlign.center, style: TextStyle(color: IeltsPalette.muted, fontSize: 11, height: 1.5)),
+              ]),
+            ))
+          : ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+              itemCount: transcript.length,
+              itemBuilder: (context, index) {
+                final item = transcript[index];
+                final isUser = item['speaker'] == 'You';
+                return Align(
+                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 620),
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 13),
+                    decoration: BoxDecoration(
+                      color: isUser ? IeltsPalette.mint : Colors.white,
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(18),
+                        topRight: const Radius.circular(18),
+                        bottomLeft: Radius.circular(isUser ? 18 : 5),
+                        bottomRight: Radius.circular(isUser ? 5 : 18),
                       ),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(item['speaker']!.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
-                        const SizedBox(height: 5),
-                        Text(item['text']!),
-                      ]),
+                      border: Border.all(color: isUser ? const Color(0xFFD1E9E0) : IeltsPalette.line),
                     ),
-                  );
-                },
-              ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(isUser ? Icons.person_rounded : Icons.school_rounded, size: 13, color: IeltsPalette.emerald),
+                        const SizedBox(width: 5),
+                        Text(isUser ? 'YOU' : 'EXAMINER', style: const TextStyle(color: IeltsPalette.emerald, fontWeight: FontWeight.w900, fontSize: 9, letterSpacing: 1)),
+                      ]),
+                      const SizedBox(height: 6),
+                      Text(item['text']!, style: const TextStyle(color: IeltsPalette.ink, height: 1.45, fontSize: 13)),
+                    ]),
+                  ),
+                );
+              },
+            ),
       ),
       SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 11, 16, 13),
+          decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: IeltsPalette.line))),
           child: Column(children: [
             if (connected) ...[
-              FilledButton.tonalIcon(
-                onPressed: microphoneOn ? stopMicrophone : startMicrophone,
-                icon: Icon(microphoneOn ? Icons.pause_circle_outline : Icons.mic),
-                label: Text(microphoneOn ? 'Pause microphone' : 'Resume microphone'),
-              ),
-              const SizedBox(height: 8),
-            ],
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: connecting ? null : connected ? disconnect : connect,
-                icon: Icon(connected ? Icons.call_end : Icons.mic),
-                label: Text(connecting ? 'Connecting…' : connected ? 'End Live Chat' : 'Start Live Chat'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: connected ? Colors.red.shade700 : null,
-                  foregroundColor: connected ? Colors.white : null,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
+              Row(children: [
+                Expanded(child: OutlinedButton.icon(
+                  onPressed: microphoneOn ? stopMicrophone : startMicrophone,
+                  icon: Icon(microphoneOn ? Icons.pause_circle_outline_rounded : Icons.mic_rounded),
+                  label: Text(microphoneOn ? 'Pause microphone' : 'Resume microphone'),
+                )),
+                const SizedBox(width: 9),
+                Expanded(child: FilledButton.icon(
+                  onPressed: disconnect,
+                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFFB84F45)),
+                  icon: const Icon(Icons.call_end_rounded, size: 18),
+                  label: const Text('End session'),
+                )),
+              ]),
+            ] else
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: connecting ? null : connect,
+                  icon: connecting
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.mic_rounded),
+                  label: Text(connecting ? 'Connecting securely…' : 'Start live conversation'),
                 ),
               ),
-            ),
-            const SizedBox(height: 6),
-            const Text('Internet required • Practice sessions are limited to 5 minutes each.', style: TextStyle(fontSize: 11), textAlign: TextAlign.center),
+            const SizedBox(height: 7),
+            const Text('Use a headset for clearer audio and fewer microphone echoes.', style: TextStyle(fontSize: 9, color: IeltsPalette.muted)),
           ]),
         ),
       ),
