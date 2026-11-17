@@ -89,7 +89,7 @@ class _StudyPlannerScreenState extends State<StudyPlannerScreen> {
         .where((task) => doneIds.contains(task.id))
         .fold<int>(0, (sum, task) => sum + task.minutes);
     final goalMinutes = store.dailyStudyMinutesGoal;
-    final goalMinutesDone = completedMinutes.clamp(0, goalMinutes);
+    final goalMinutesDone = completedMinutes.clamp(0, goalMinutes).toInt();
     final progress = (goalMinutesDone / goalMinutes).clamp(0.0, 1.0).toDouble();
 
     return Scaffold(
