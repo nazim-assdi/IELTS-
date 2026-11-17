@@ -152,6 +152,7 @@ class ProgressStore {
     final record = <String, dynamic>{
       'date': DateTime.now().toIso8601String(),
       'overallBand': parsedBand,
+      'assessmentType': result['assessmentType']?.toString() ?? 'AI practice estimate; not an official IELTS result',
       'fluencyCoherence': result['fluencyCoherence'],
       'lexicalResource': result['lexicalResource'],
       'grammaticalRangeAccuracy': result['grammaticalRangeAccuracy'],
