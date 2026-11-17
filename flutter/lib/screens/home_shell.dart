@@ -10,6 +10,7 @@ import 'cue_cards_screen.dart';
 import 'vocabulary_screen.dart';
 import 'translator_screen.dart';
 import 'study_planner_screen.dart';
+import 'mock_test_screen.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({
@@ -32,7 +33,7 @@ class _HomeShellState extends State<HomeShell> {
   int tab = 0;
   int section = 1;
 
-  final titles = const ['Your learning path', 'Speaking studio', 'Cue card library', 'Dictionary', 'AI translator'];
+  final titles = const ['Your learning path', 'Speaking studio', 'Cue card library', 'Dictionary', 'AI translator', 'Mock Test Centre'];
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +43,7 @@ class _HomeShellState extends State<HomeShell> {
       CueCardsScreen(prefs: widget.prefs),
       VocabularyScreen(prefs: widget.prefs),
       TranslatorScreen(prefs: widget.prefs),
+      MockTestScreen(prefs: widget.prefs),
     ];
 
     return Scaffold(
@@ -85,6 +87,7 @@ class _HomeShellState extends State<HomeShell> {
           NavigationDestination(icon: Icon(Icons.style_outlined), selectedIcon: Icon(Icons.style_rounded), label: 'Cue Cards'),
           NavigationDestination(icon: Icon(Icons.auto_stories_outlined), selectedIcon: Icon(Icons.auto_stories_rounded), label: 'Dictionary'),
           NavigationDestination(icon: Icon(Icons.translate_rounded), selectedIcon: Icon(Icons.translate_rounded), label: 'Translate'),
+          NavigationDestination(icon: Icon(Icons.fact_check_outlined), selectedIcon: Icon(Icons.fact_check_rounded), label: 'Mock Test'),
         ],
       ),
     );
@@ -238,6 +241,14 @@ class _HomeShellState extends State<HomeShell> {
             subtitle: 'Definitions, IPA, examples and Bangla meanings',
             accent: const Color(0xFFC28D2B),
             onTap: () => setState(() => tab = 3),
+          ),
+          const SizedBox(height: 9),
+          PremiumFeatureTile(
+            icon: Icons.fact_check_rounded,
+            title: 'IELTS Mock Test Centre',
+            subtitle: 'Four-skill diagnostic, saved results and adaptive next steps',
+            accent: const Color(0xFF0B806A),
+            onTap: () => setState(() => tab = 5),
           ),
           const SizedBox(height: 9),
           PremiumFeatureTile(
