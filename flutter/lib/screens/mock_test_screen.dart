@@ -95,15 +95,18 @@ class _MockTestScreenState extends State<MockTestScreen> {
     final reading = _readingScore / _reading.length * 100;
     final writingWords = _wordCount(_writingTask1.text) + _wordCount(_writingTask2.text);
     final speakingWords = _wordCount(_speaking.text);
-    final writingComplete = _wordCount(_writingTask1.text) >= 80 && _wordCount(_writingTask2.text) >= 120;
-    final speakingComplete = speakingWords >= 60;
-    final sections = <String, double>{
+    // Only objective MCQs can be represented as percentages in this short diagnostic.
+    // Writing and typed speaking are sent to Gemini for qualitative coaching, never fake bands.
+    final sections = <String, double?>{
       'Listening': listening,
       'Reading': reading,
-      'Writing': writingComplete ? 65 : (writingWords > 0 ? 35 : 0),
-      'Speaking': speakingComplete ? 65 : (speakingWords > 0 ? 35 : 0),
+      'Writing': null,
+      'Speaking': null,
     };
-    final ordered = sections.entries.toList()..sort((a, b) => a.value.compareTo(b.value));
+    final ordered = <MapEntry<String, double>>[
+      MapEntry('Listening', listening),
+      MapEntry('Reading', reading),
+    ]..sort((a, b) => a.value.compareTo(b.value));
     final record = <String, dynamic>{
       'date': DateTime.now().toIso8601String(),
       'listeningCorrect': _listeningScore,
@@ -226,7 +229,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
           const SizedBox(height: 18),
           const Text('Measure your progress.\nTrain with a purpose.', style: TextStyle(color: Colors.white, fontSize: 25, height: 1.12, fontWeight: FontWeight.w900)),
           const SizedBox(height: 9),
-          const Text('A guided four-skill diagnostic with a personal next-step plan.', style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5)),
+          const Text('A short four-skill learning diagnostic with a personal next-step plan. This is a practice preview, not a full official-length IELTS mock.', style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5)),
           const SizedBox(height: 18),
           SizedBox(width: double.infinity, child: FilledButton.icon(
             onPressed: _start,
@@ -239,12 +242,12 @@ class _MockTestScreenState extends State<MockTestScreen> {
       const SizedBox(height: 18),
       const Text('TEST FORMAT', style: TextStyle(color: _green, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.2)),
       const SizedBox(height: 10),
-      _infoTile(Icons.headphones_rounded, 'Listening', '4 multiple-choice questions • short practice transcript'),
+      _infoTile(Icons.headphones_rounded, 'Listening', '4 practice MCQs • listen to the audio prompt before answering'),
       _infoTile(Icons.menu_book_rounded, 'Reading', '4 multiple-choice questions • one academic-style passage'),
       _infoTile(Icons.edit_note_rounded, 'Writing', 'Two guided writing prompts with word-count checks'),
-      _infoTile(Icons.mic_rounded, 'Speaking', 'One long-turn prompt with a written response workspace'),
+      _infoTile(Icons.mic_rounded, 'Speaking', 'One Part 2 prompt with a typed reflection (not a spoken band assessment)'),
       const SizedBox(height: 8),
-      const Text('35 minutes • Your progress is saved on this device', style: TextStyle(color: _muted, fontSize: 11)),
+      const Text('35-minute learning diagnostic • Not a full IELTS mock • Saved on this device', style: TextStyle(color: _muted, fontSize: 11)),
       if (latest != null) ...[
         const SizedBox(height: 22),
         const Text('YOUR LATEST ATTEMPT', style: TextStyle(color: _green, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.2)),
@@ -419,11 +422,14 @@ class _MockTestScreenState extends State<MockTestScreen> {
       const Text('SKILL SNAPSHOT', style: TextStyle(color: _green, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1)),
       const SizedBox(height: 10),
       ...sections.entries.map((entry) {
-        final value = (entry.value as num).toDouble();
+        final raw = entry.value;
+        final value = raw is num ? raw.toDouble() : null;
         return Padding(padding: const EdgeInsets.only(bottom: 12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [Expanded(child: Text(entry.key, style: const TextStyle(color: _ink, fontWeight: FontWeight.w800))), Text('${value.round()}%', style: const TextStyle(color: _green, fontWeight: FontWeight.w900))]),
-          const SizedBox(height: 5),
-          ClipRRect(borderRadius: BorderRadius.circular(20), child: LinearProgressIndicator(value: value / 100, minHeight: 8, backgroundColor: const Color(0xFFE9EFEC), color: _green)),
+          Row(children: [Expanded(child: Text(entry.key, style: const TextStyle(color: _ink, fontWeight: FontWeight.w800))), Text(value == null ? 'Not assessed' : '${value.round()}%', style: const TextStyle(color: _green, fontWeight: FontWeight.w900))]),
+          if (value != null) ...[
+            const SizedBox(height: 5),
+            ClipRRect(borderRadius: BorderRadius.circular(20), child: LinearProgressIndicator(value: value / 100, minHeight: 8, backgroundColor: const Color(0xFFE9EFEC), color: _green)),
+          ],
         ]));
       }),
       if (data['aiAnalysis'] is Map) ...[
