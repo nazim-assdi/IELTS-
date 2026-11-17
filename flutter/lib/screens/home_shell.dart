@@ -11,6 +11,7 @@ import 'vocabulary_screen.dart';
 import 'translator_screen.dart';
 import 'study_planner_screen.dart';
 import 'mock_test_screen.dart';
+import 'mistake_review_screen.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({
@@ -252,6 +253,14 @@ class _HomeShellState extends State<HomeShell> {
           ),
           const SizedBox(height: 9),
           PremiumFeatureTile(
+            icon: Icons.replay_circle_filled_rounded,
+            title: 'Adaptive mistake review',
+            subtitle: '${progress.dueMistakeCount} questions due · spaced revision',
+            accent: const Color(0xFFC28D2B),
+            onTap: _openMistakeReview,
+          ),
+          const SizedBox(height: 9),
+          PremiumFeatureTile(
             icon: Icons.event_note_rounded,
             title: 'Personal study planner',
             subtitle: 'Set daily goals, follow a checklist and review your last 7 days',
@@ -469,6 +478,13 @@ class _HomeShellState extends State<HomeShell> {
         ),
       ),
     );
+  }
+
+  Future<void> _openMistakeReview() async {
+    await Navigator.push(context, MaterialPageRoute(
+      builder: (_) => MistakeReviewScreen(prefs: widget.prefs),
+    ));
+    if (mounted) setState(() {});
   }
 
   Future<void> _openStudyPlanner() async {
