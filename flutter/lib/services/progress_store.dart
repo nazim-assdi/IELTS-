@@ -165,5 +165,82 @@ class ProgressStore {
     await prefs.setStringList('speakingEvaluationHistory', history.take(20).toList());
   }
 
+
+  List<Map<String, dynamic>> get mistakeBank {
+    final raw = prefs.getStringList('mistakeBank') ?? <String>[];
+    return raw.map((item) {
+      try {
+        final decoded = jsonDecode(item);
+        return decoded is Map ? Map<String, dynamic>.from(decoded) : <String, dynamic>{};
+      } catch (_) {
+        return <String, dynamic>{};
+      }
+    }).where((item) => item.isNotEmpty).toList();
+  }
+
+  List<Map<String, dynamic>> get dueMistakes {
+    final now = DateTime.now();
+    return mistakeBank.where((item) {
+      final dueAt = DateTime.tryParse(item['dueAt']?.toString() ?? '');
+      return item['mastered'] != true && (dueAt == null || !dueAt.isAfter(now));
+    }).toList()
+      ..sort((a, b) => (DateTime.tryParse(a['dueAt']?.toString() ?? '') ?? DateTime(1970))
+          .compareTo(DateTime.tryParse(b['dueAt']?.toString() ?? '') ?? DateTime(1970)));
+  }
+
+  int get activeMistakeCount => mistakeBank.where((item) => item['mastered'] != true).length;
+  int get dueMistakeCount => dueMistakes.length;
+
+  Future<void> recordMistake({
+    required String id,
+    required String skill,
+    required String prompt,
+    required String userAnswer,
+    required String correctAnswer,
+    required String explanation,
+  }) async {
+    final items = mistakeBank;
+    final index = items.indexWhere((item) => item['id'] == id);
+    final previous = index >= 0 ? items[index] : <String, dynamic>{};
+    final entry = <String, dynamic>{
+      'id': id,
+      'skill': skill,
+      'prompt': prompt,
+      'userAnswer': userAnswer,
+      'correctAnswer': correctAnswer,
+      'explanation': explanation,
+      'wrongCount': ((previous['wrongCount'] as num?)?.toInt() ?? 0) + 1,
+      'stage': 0,
+      'mastered': false,
+      'lastAttemptAt': DateTime.now().toIso8601String(),
+      'dueAt': DateTime.now().add(const Duration(hours: 20)).toIso8601String(),
+    };
+    if (index >= 0) {
+      items[index] = entry;
+    } else {
+      items.insert(0, entry);
+    }
+    await prefs.setStringList('mistakeBank', items.map(jsonEncode).toList());
+  }
+
+  Future<void> reviewMistake(String id, {required bool remembered}) async {
+    final items = mistakeBank;
+    final index = items.indexWhere((item) => item['id'] == id);
+    if (index < 0) return;
+    final item = items[index];
+    final currentStage = (item['stage'] as num?)?.toInt() ?? 0;
+    final nextStage = remembered ? currentStage + 1 : 0;
+    const intervals = [1, 3, 7, 14, 30];
+    final mastered = remembered && nextStage >= intervals.length;
+    final intervalDays = intervals[nextStage.clamp(0, intervals.length - 1)];
+    item['stage'] = nextStage;
+    item['mastered'] = mastered;
+    item['lastReviewedAt'] = DateTime.now().toIso8601String();
+    item['dueAt'] = DateTime.now().add(Duration(days: intervalDays)).toIso8601String();
+    item['reviewCorrectCount'] = ((item['reviewCorrectCount'] as num?)?.toInt() ?? 0) + (remembered ? 1 : 0);
+    item['reviewAgainCount'] = ((item['reviewAgainCount'] as num?)?.toInt() ?? 0) + (remembered ? 0 : 1);
+    await prefs.setStringList('mistakeBank', items.map(jsonEncode).toList());
+  }
+
   Future<void> setBand(double value) => prefs.setDouble('predictedBand', value);
 }
