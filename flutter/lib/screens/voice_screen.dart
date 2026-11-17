@@ -197,8 +197,32 @@ class _VoiceScreenState extends State<VoiceScreen> {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: Text('Estimated IELTS band: ${result['overallBand'] ?? '—'}'),
-          content: SingleChildScrollView(child: Text(const JsonEncoder.withIndent('  ').convert(result))),
+          title: Text('AI speaking estimate: ${result['overallBand'] ?? '—'}'),
+          content: SingleChildScrollView(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              Text(result['assessmentType']?.toString() ?? 'AI practice estimate only; not an official IELTS result.', style: const TextStyle(fontSize: 11, color: IeltsPalette.muted, height: 1.4)),
+              const SizedBox(height: 13),
+              _evaluationItem('Fluency & coherence', result['fluencyCoherence']),
+              _evaluationItem('Lexical resource', result['lexicalResource']),
+              _evaluationItem('Grammar', result['grammaticalRangeAccuracy']),
+              _evaluationItem('Pronunciation', result['pronunciation']),
+              if (result['strengths'] is List) ...[
+                const SizedBox(height: 8),
+                const Text('Strengths', style: TextStyle(fontWeight: FontWeight.w900)),
+                ...((result['strengths'] as List).map((item) => Text('• ${item.toString()}', style: const TextStyle(fontSize: 12, height: 1.4)))),
+              ],
+              if (result['improvements'] is List) ...[
+                const SizedBox(height: 8),
+                const Text('Next improvements', style: TextStyle(fontWeight: FontWeight.w900)),
+                ...((result['improvements'] as List).map((item) => Text('• ${item.toString()}', style: const TextStyle(fontSize: 12, height: 1.4)))),
+              ],
+              if ((result['improvedSample'] ?? '').toString().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Text('Improved sample', style: TextStyle(fontWeight: FontWeight.w900)),
+                SelectableText(result['improvedSample'].toString(), style: const TextStyle(fontSize: 12, height: 1.45)),
+              ],
+            ]),
+          ),
           actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Close'))],
         ),
       );
@@ -208,6 +232,15 @@ class _VoiceScreenState extends State<VoiceScreen> {
       if (mounted) setState(() => loading = false);
     }
   }
+
+  Widget _evaluationItem(String title, dynamic value) => Padding(
+    padding: const EdgeInsets.only(bottom: 9),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: IeltsPalette.emerald)),
+      const SizedBox(height: 2),
+      Text(value?.toString() ?? 'Not assessed', style: const TextStyle(fontSize: 12, height: 1.4)),
+    ]),
+  );
 
   Future<void> _configureServer() async {
     final controller = TextEditingController(text: apiUrl);
