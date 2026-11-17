@@ -20,6 +20,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
   final tts = FlutterTts();
   final input = TextEditingController();
   final messages = <Map<String, String>>[];
+  final messageScrollController = ScrollController();
   String part = 'Part 1';
   String transcript = '';
   String apiUrl = defaultIeltsApiUrl;
@@ -45,7 +46,20 @@ class _VoiceScreenState extends State<VoiceScreen> {
 
   Future<void> _initTts() async {
     await tts.setLanguage('en-GB');
-    await tts.setSpeechRate(0.46);
+    await tts.setSpeechRate(0.42);
+    await tts.setPitch(0.96);
+    await tts.setVolume(1.0);
+  }
+
+  void _scrollChatToLatest() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !messageScrollController.hasClients) return;
+      messageScrollController.animateTo(
+        messageScrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   Future<void> _initSpeech() async {
@@ -135,6 +149,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
       loading = true;
       chatError = null;
     });
+    _scrollChatToLatest();
     try {
       final reply = (await api.examinerReply(history: history, message: message, part: part)).trim();
       if (!mounted) return;
@@ -144,6 +159,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
         chatError = null;
         failedMessage = '';
       });
+      _scrollChatToLatest();
       await tts.speak(reply);
     } catch (error) {
       if (mounted) {
@@ -151,6 +167,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
           failedMessage = message;
           chatError = error.toString().replaceFirst('Exception: ', '');
         });
+        _scrollChatToLatest();
       }
     } finally {
       if (mounted) setState(() => loading = false);
@@ -238,6 +255,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
   @override
   void dispose() {
     input.dispose();
+    messageScrollController.dispose();
     speech.stop();
     tts.stop();
     super.dispose();
@@ -339,6 +357,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
       const Divider(height: 1),
       Expanded(
         child: ListView.builder(
+          controller: messageScrollController,
           padding: const EdgeInsets.fromLTRB(17, 15, 17, 10),
           itemCount: messages.length + ((loading || chatError != null) ? 1 : 0),
           itemBuilder: (context, index) {
