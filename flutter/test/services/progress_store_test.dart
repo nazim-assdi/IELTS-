@@ -66,14 +66,35 @@ void main() {
       final store = ProgressStore(prefs);
 
       await store.setDailyLessonGoal(8);
-      await store.setDailyStudyMinutesGoal(45);
+      await store.setDailyStudyMinutesGoal(40);
       await store.togglePlanTask('lesson');
       await store.togglePlanTask('vocabulary');
 
       expect(store.dailyLessonGoal, 8);
-      expect(store.dailyStudyMinutesGoal, 45);
+      expect(store.dailyStudyMinutesGoal, 40);
       expect(store.todayPlanTaskCount, 2);
       expect(store.todayPlannedMinutes, 25);
+    });
+
+    test('stores the latest speaking band and keeps a short assessment history', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final store = ProgressStore(prefs);
+
+      await store.recordSpeakingEvaluation({
+        'overallBand': 6.5,
+        'fluencyCoherence': 'Good progression',
+        'lexicalResource': 'Use more precise collocations',
+        'grammaticalRangeAccuracy': 'Varied sentence structures',
+        'pronunciation': 'Clear and understandable',
+        'strengths': ['Relevant examples'],
+        'improvements': ['Develop ideas further'],
+      });
+
+      expect(store.band, 6.5);
+      expect(store.latestSpeakingEvaluation?['overallBand'], 6.5);
+      expect(store.latestSpeakingEvaluation?['improvements'], ['Develop ideas further']);
+      expect(store.streak, 1);
     });
 
   });
