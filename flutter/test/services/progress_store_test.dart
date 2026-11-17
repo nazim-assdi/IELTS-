@@ -5,6 +5,64 @@ import 'package:ielts_hero/services/progress_store.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  group('ProgressStore adaptive mistake review', () {
+    test('stores wrong answers and schedules spaced review', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final store = ProgressStore(prefs);
+
+      await store.recordMistake(
+        id: 'u1-l1-q0',
+        skill: 'Grammar',
+        prompt: 'Choose the correct sentence',
+        userAnswer: 'She go to school',
+        correctAnswer: 'She goes to school',
+        explanation: 'Use the third-person singular form.',
+      );
+
+      expect(store.activeMistakeCount, 1);
+      expect(store.dueMistakeCount, 1);
+      expect(store.mistakeBank.first['wrongCount'], 1);
+
+      await store.reviewMistake('u1-l1-q0', remembered: true);
+      expect(store.dueMistakeCount, 0);
+      expect(store.mistakeBank.first['stage'], 1);
+      expect(store.mistakeBank.first['mastered'], false);
+
+      await store.reviewMistake('u1-l1-q0', remembered: false);
+      expect(store.mistakeBank.first['stage'], 0);
+      expect(store.mistakeBank.first['reviewAgainCount'], 1);
+    });
+
+    test('updates an existing missed question rather than duplicating it', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final store = ProgressStore(prefs);
+      final data = {
+        'id': 'u2-l3-q0',
+        'skill': 'Vocabulary',
+        'prompt': 'Choose a suitable word',
+        'userAnswer': 'big',
+        'correctAnswer': 'substantial',
+        'explanation': 'Use precise academic vocabulary.',
+      };
+
+      await store.recordMistake(
+        id: data['id']!, skill: data['skill']!, prompt: data['prompt']!,
+        userAnswer: data['userAnswer']!, correctAnswer: data['correctAnswer']!,
+        explanation: data['explanation']!,
+      );
+      await store.recordMistake(
+        id: data['id']!, skill: data['skill']!, prompt: data['prompt']!,
+        userAnswer: data['userAnswer']!, correctAnswer: data['correctAnswer']!,
+        explanation: data['explanation']!,
+      );
+
+      expect(store.activeMistakeCount, 1);
+      expect(store.mistakeBank.first['wrongCount'], 2);
+    });
+  });
+
   group('ProgressStore daily counters', () {
     test('resets yesterday counters before completing a new lesson', () async {
       SharedPreferences.setMockInitialValues({
