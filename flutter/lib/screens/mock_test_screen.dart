@@ -284,17 +284,27 @@ class _MockTestScreenState extends State<MockTestScreen> {
     child: Row(children: [Icon(icon, color: _green), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w900, color: _ink)), Text(subtitle, style: const TextStyle(color: _muted, fontSize: 11))]))]),
   );
 
-  Widget _latestCard(Map<String, dynamic> data) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE5ECE9))),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('Focus next: ${data['weakestSkill'] ?? 'Review'}', style: const TextStyle(fontWeight: FontWeight.w900, color: _ink)),
-      const SizedBox(height: 5),
-      Text(data['nextAction']?.toString() ?? '', style: const TextStyle(color: _muted, fontSize: 12, height: 1.4)),
-      const SizedBox(height: 8),
-      Text('Listening ${data['listeningCorrect']}/${data['listeningTotal']} • Reading ${data['readingCorrect']}/${data['readingTotal']}', style: const TextStyle(color: _green, fontWeight: FontWeight.w800, fontSize: 11)),
-    ]),
-  );
+  Widget _latestCard(Map<String, dynamic> data) {
+    final ai = data['aiAnalysis'] is Map
+        ? Map<String, dynamic>.from(data['aiAnalysis'] as Map)
+        : null;
+    final plan = ai?['sevenDayPlan'] is List ? (ai!['sevenDayPlan'] as List) : const [];
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE5ECE9))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Focus next: ${ai?['prioritySkill'] ?? data['weakestSkill'] ?? 'Review'}', style: const TextStyle(fontWeight: FontWeight.w900, color: _ink)),
+        const SizedBox(height: 5),
+        Text(ai?['summary']?.toString() ?? data['nextAction']?.toString() ?? '', style: const TextStyle(color: _muted, fontSize: 12, height: 1.4)),
+        const SizedBox(height: 8),
+        Text('Listening ${data['listeningCorrect']}/${data['listeningTotal']} • Reading ${data['readingCorrect']}/${data['readingTotal']}', style: const TextStyle(color: _green, fontWeight: FontWeight.w800, fontSize: 11)),
+        if (plan.isNotEmpty) ...[
+          const Divider(height: 19),
+          Text(plan.first.toString(), style: const TextStyle(color: _ink, fontSize: 11, fontWeight: FontWeight.w700)),
+        ],
+      ]),
+    );
+  }
 
   Widget _examHeader() => Padding(
     padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
