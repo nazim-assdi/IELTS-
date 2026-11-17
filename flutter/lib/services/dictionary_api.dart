@@ -55,10 +55,9 @@ class DictionaryEntry {
     for (final meaning in meanings) {
       for (final definition in (meaning['definitions'] as List? ?? const [])) {
         if (definition is Map) {
-          definitions.add(DictionaryDefinition.fromJson({
-            ...definition,
-            'partOfSpeech': meaning['partOfSpeech'] ?? 'meaning',
-          }));
+          final definitionData = Map<String, dynamic>.from(definition);
+          definitionData['partOfSpeech'] = meaning['partOfSpeech'] ?? 'meaning';
+          definitions.add(DictionaryDefinition.fromJson(definitionData));
         }
       }
     }
