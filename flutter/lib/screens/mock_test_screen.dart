@@ -544,7 +544,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
         }),
         ..._criterionPanels('WRITING CRITERIA', report['writingCriteria']),
         ..._criterionPanels('SPEAKING TEXT REVIEW', report['speakingCriteria']),
-        if (plan.isNotEmpty) [...
+        if (plan.isNotEmpty) ...[
           const Divider(color: Color(0xFFD2E4DC)),
           const Text('YOUR 7-DAY ADAPTIVE PLAN', style: TextStyle(color: _green, fontWeight: FontWeight.w900, fontSize: 9, letterSpacing: 1)),
           const SizedBox(height: 7),
