@@ -1,0 +1,23 @@
+name: ielts_hero
+description: Flutter edition of IELTS HERO - gamified IELTS practice and AI speaking coach.
+publish_to: 'none'
+version: 1.0.0+1
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  shared_preferences: ^2.3.2
+  http: ^1.2.2
+  speech_to_text: ^7.0.0
+  flutter_tts: ^4.2.0
+  record: ^6.2.1
+  web_socket_channel: ^3.0.3
+  audio_stream_player: ^1.1.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+flutter:
+  uses-material-design: true
