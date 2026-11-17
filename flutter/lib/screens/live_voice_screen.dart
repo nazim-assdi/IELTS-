@@ -154,13 +154,16 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
         // to idle. Without it, subsequent examiner turns can remain silent.
         await _finishAudioTurn();
       } else if (type == 'interrupted') {
-        // Invalidate queued chunks from the interrupted assistant turn and stop playback
-        // in queue order. The next audio turn will automatically restart the player.
+        // Stop immediately: queuing stop behind endOfStream would make barge-in wait
+        // until the entire current spoken answer had drained.
         playbackGeneration++;
         playerStarted = false;
-        audioQueue = audioQueue.then((_) async {
+        final previousAudioQueue = audioQueue;
+        audioQueue = Future<void>.value();
+        try {
           await player?.stop();
-        }).catchError((_) {});
+        } catch (_) {}
+        unawaited(previousAudioQueue.catchError((_) {}));
         if (mounted) setState(() => examinerSpeaking = false);
       } else if (type == 'session_limit') {
         _notice(payload['message']?.toString() ?? 'The live session has ended.');
@@ -246,9 +249,12 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
     await socketSubscription?.cancel();
     socketSubscription = null;
     playbackGeneration++;
-    try { await audioQueue; } catch (_) {}
-    try { await player?.stop(); } catch (_) {}
     playerStarted = false;
+    final pendingAudio = audioQueue;
+    audioQueue = Future<void>.value();
+    // Flush current playback before waiting for queued feed/end-of-stream work.
+    try { await player?.stop(); } catch (_) {}
+    try { await pendingAudio; } catch (_) {}
     try { await player?.dispose(); } catch (_) {}
     player = null;
     if (mounted) setState(() {
