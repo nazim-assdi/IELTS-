@@ -44,5 +44,37 @@ void main() {
       expect(store.xp, 10);
       expect(store.gems, 55);
     });
+    test('increments a consecutive-day streak only once per active day', () async {
+      final yesterday = ProgressStore.dateKey(DateTime.now().subtract(const Duration(days: 1)));
+      SharedPreferences.setMockInitialValues({
+        'streak': 4,
+        'lastStudyDay': yesterday,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final store = ProgressStore(prefs);
+
+      await store.togglePlanTask('speaking');
+      expect(store.streak, 5);
+      await store.complete('u1-l1', 10, 5);
+      expect(store.streak, 5);
+      expect(prefs.getString('lastStudyDay'), ProgressStore.dateKey(DateTime.now()));
+    });
+
+    test('persists study goals and daily plan checklist', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final store = ProgressStore(prefs);
+
+      await store.setDailyLessonGoal(8);
+      await store.setDailyStudyMinutesGoal(45);
+      await store.togglePlanTask('lesson');
+      await store.togglePlanTask('vocabulary');
+
+      expect(store.dailyLessonGoal, 8);
+      expect(store.dailyStudyMinutesGoal, 45);
+      expect(store.todayPlanTaskCount, 2);
+      expect(store.todayPlannedMinutes, 25);
+    });
+
   });
 }
