@@ -85,6 +85,28 @@ class GeminiApi {
     return translated;
   }
 
+
+  Future<Map<String, dynamic>> analyzeMockTest({
+    required Map<String, dynamic> metrics,
+    required String writingTask1,
+    required String writingTask2,
+    required String speakingResponse,
+  }) async {
+    if (!configured) throw Exception('AI analysis service is not connected.');
+    final response = await http.post(
+      _uri('/api/gemini/analyze-mock-test'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        ...metrics,
+        'writing': writingTask1,
+        'writingTask2': writingTask2,
+        'speaking': speakingResponse,
+      }),
+    ).timeout(const Duration(seconds: 120));
+    if (response.statusCode != 200) throw Exception(_error(response));
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> generateLesson({
     required String topic,
     required String description,
