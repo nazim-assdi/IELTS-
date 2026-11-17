@@ -232,7 +232,7 @@ class ProgressStore {
     final nextStage = remembered ? currentStage + 1 : 0;
     const intervals = [1, 3, 7, 14, 30];
     final mastered = remembered && nextStage >= intervals.length;
-    final intervalDays = intervals[nextStage.clamp(0, intervals.length - 1)];
+    final intervalDays = intervals[nextStage.clamp(0, intervals.length - 1).toInt()];
     item['stage'] = nextStage;
     item['mastered'] = mastered;
     item['lastReviewedAt'] = DateTime.now().toIso8601String();
