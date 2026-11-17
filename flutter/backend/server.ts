@@ -118,11 +118,48 @@ app.get('/health', (_req, res) => res.json({
 
 app.post('/api/gemini/examiner-chat', async (req, res) => {
   try {
-    const { history = [], message = '', testPart = 'Part 1' } = req.body ?? {};
-    const transcript = Array.isArray(history)
-      ? history.map((item: any) => `${item.role === 'examiner' ? 'Examiner' : 'Candidate'}: ${item.text ?? ''}`).join('\n')
-      : '';
-    const prompt = `You are Dr. Arthur James, a professional British IELTS Speaking examiner. Conduct a realistic IELTS ${testPart} interview. Ask one concise natural follow-up question at a time. Do not give a band score during the interview.\n\nConversation so far:\n${transcript}\nCandidate's latest answer: ${message}\n\nReply as the examiner in 1-3 sentences.`;
+    const message = String(req.body?.message ?? '').trim();
+    const requestedPart = String(req.body?.testPart ?? 'Part 1').trim();
+    const testPart = ['Part 1', 'Part 2', 'Part 3'].includes(requestedPart) ? requestedPart : 'Part 1';
+    const rawHistory = Array.isArray(req.body?.history) ? req.body.history : [];
+    if (!message || message.length > 3000) {
+      res.status(400).json({ error: 'Write an answer (maximum 3,000 characters) before sending it.' });
+      return;
+    }
+    const transcript = rawHistory
+      .slice(-16)
+      .map((item: any) => {
+        const text = String(item?.text ?? '').trim().slice(0, 3000);
+        if (!text) return '';
+        const speaker = item?.role === 'examiner' ? 'Examiner' : 'Candidate';
+        return `${speaker}: ${text}`;
+      })
+      .filter(Boolean)
+      .join('\n');
+    const partGuidance = testPart === 'Part 1'
+      ? 'Ask short, familiar questions about the candidate’s life, routines, interests and experiences. Follow naturally from what the candidate has just said. Move to a related topic when appropriate.'
+      : testPart === 'Part 2'
+        ? 'Use a cue-card long-turn format. If the candidate has not yet received a topic, give one clear cue card. After the candidate’s long answer, acknowledge a specific detail and ask a relevant follow-up; do not interrupt or replace their story.'
+        : 'Ask thoughtful, broader questions about causes, effects, comparisons, trends and possible solutions. Explore the candidate’s reasoning without turning the exchange into a lecture.';
+    const prompt = `You are Dr. Arthur James, an experienced IELTS Speaking examiner. Hold a coherent, realistic practice interview for IELTS ${testPart} with a Bangladeshi candidate.
+
+EXAMINER BEHAVIOUR:
+- Speak in natural, contemporary British English, with a warm, composed, professional manner.
+- Sound like a real interviewer: acknowledge one specific point from the answer, vary your wording, and avoid repetitive praise or stock phrases.
+- Ask exactly one concise question at a time. Do not ask a list of questions.
+- Keep spoken replies brief (usually 1–3 sentences); never give long lectures or unsolicited band scores during the interview.
+- Do not repeat a question already asked. Use the conversation history and the candidate’s latest answer to decide the next question.
+- If the answer is unclear, ask a gentle clarification. If a major grammar or vocabulary error affects meaning, give at most one short correction after acknowledging the idea.
+- Never pretend to be an official IELTS examiner or promise a band score.
+- Use the following guidance for this section: ${partGuidance}
+
+CONVERSATION SO FAR:
+${transcript || 'No earlier turns.'}
+
+CANDIDATE'S LATEST ANSWER:
+${message}
+
+Return only the examiner's next spoken reply. Do not add labels, markdown, or analysis.`;
     const reply = await generate(prompt);
     res.json({ reply });
   } catch (error) {
