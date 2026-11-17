@@ -542,7 +542,9 @@ class _MockTestScreenState extends State<MockTestScreen> {
             if (steps.isNotEmpty) Text('Next: $steps', style: const TextStyle(color: _ink, fontSize: 11, height: 1.4)),
           ]));
         }),
-        if (plan.isNotEmpty) ...[
+        ..._criterionPanels('WRITING CRITERIA', report['writingCriteria']),
+        ..._criterionPanels('SPEAKING TEXT REVIEW', report['speakingCriteria']),
+        if (plan.isNotEmpty) [...
           const Divider(color: Color(0xFFD2E4DC)),
           const Text('YOUR 7-DAY ADAPTIVE PLAN', style: TextStyle(color: _green, fontWeight: FontWeight.w900, fontSize: 9, letterSpacing: 1)),
           const SizedBox(height: 7),
@@ -550,6 +552,32 @@ class _MockTestScreenState extends State<MockTestScreen> {
         ],
       ]),
     );
+  }
+
+  List<Widget> _criterionPanels(String heading, dynamic rawCriteria) {
+    if (rawCriteria is! List || rawCriteria.isEmpty) return [];
+    return [
+      const Divider(color: Color(0xFFD2E4DC)),
+      Text(heading, style: const TextStyle(color: _green, fontWeight: FontWeight.w900, fontSize: 9, letterSpacing: 1)),
+      const SizedBox(height: 8),
+      ...rawCriteria.whereType<Map>().map((raw) {
+        final item = Map<String, dynamic>.from(raw);
+        final next = item['nextSteps'] is List ? (item['nextSteps'] as List).join(' • ') : '';
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(child: Text(item['criterion']?.toString() ?? 'Criterion', style: const TextStyle(color: _ink, fontWeight: FontWeight.w900, fontSize: 11))),
+              if ((item['status'] ?? '').toString().isNotEmpty)
+                Flexible(child: Text(item['status'].toString(), textAlign: TextAlign.right, style: const TextStyle(color: _muted, fontSize: 9, fontWeight: FontWeight.w700))),
+            ]),
+            const SizedBox(height: 3),
+            Text(item['evidence']?.toString() ?? '', style: const TextStyle(color: _muted, fontSize: 10, height: 1.4)),
+            if (next.isNotEmpty) Text('Next: $next', style: const TextStyle(color: _ink, fontSize: 10, height: 1.4)),
+          ]),
+        );
+      }),
+    ];
   }
 
   Widget _results() {
