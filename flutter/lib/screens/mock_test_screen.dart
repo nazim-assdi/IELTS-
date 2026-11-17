@@ -174,16 +174,14 @@ class _MockTestScreenState extends State<MockTestScreen> {
       _examHeader(),
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-        child: SegmentedButton<int>(
-          segments: const [
-            ButtonSegment(value: 0, label: Text('Listening'), icon: Icon(Icons.headphones_rounded)),
-            ButtonSegment(value: 1, label: Text('Reading'), icon: Icon(Icons.menu_book_rounded)),
-            ButtonSegment(value: 2, label: Text('Writing'), icon: Icon(Icons.edit_note_rounded)),
-            ButtonSegment(value: 3, label: Text('Speaking'), icon: Icon(Icons.mic_none_rounded)),
-          ],
-          selected: {_section},
-          onSelectionChanged: (value) => setState(() => _section = value.first),
-          showSelectedIcon: false,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
+            _sectionChip(0, 'Listening', Icons.headphones_rounded),
+            _sectionChip(1, 'Reading', Icons.menu_book_rounded),
+            _sectionChip(2, 'Writing', Icons.edit_note_rounded),
+            _sectionChip(3, 'Speaking', Icons.mic_none_rounded),
+          ]),
         ),
       ),
       Expanded(child: IndexedStack(index: _section, children: [
@@ -195,6 +193,20 @@ class _MockTestScreenState extends State<MockTestScreen> {
       _bottomControls(),
     ]);
   }
+
+  Widget _sectionChip(int index, String label, IconData icon) => Padding(
+    padding: const EdgeInsets.only(right: 7),
+    child: ChoiceChip(
+      selected: _section == index,
+      onSelected: (_) => setState(() => _section = index),
+      avatar: Icon(icon, size: 16, color: _section == index ? Colors.white : _green),
+      label: Text(label),
+      selectedColor: _green,
+      backgroundColor: Theme.of(context).cardColor,
+      labelStyle: TextStyle(color: _section == index ? Colors.white : _ink, fontSize: 11, fontWeight: FontWeight.w800),
+      side: BorderSide(color: _section == index ? _green : const Color(0xFFE5ECE9)),
+    ),
+  );
 
   Widget _landing() {
     final history = widget.prefs.getStringList('mockTestHistory') ?? [];
