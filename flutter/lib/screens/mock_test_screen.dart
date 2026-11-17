@@ -158,6 +158,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
         writingTask1: _writingTask1.text,
         writingTask2: _writingTask2.text,
         speakingResponse: _speaking.text,
+        answerReview: answerReview,
       );
       record['aiAnalysis'] = aiAnalysis;
       record['analysisSource'] = 'gemini';
