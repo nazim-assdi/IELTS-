@@ -23,6 +23,8 @@ class _VoiceScreenState extends State<VoiceScreen> {
   String part = 'Part 1';
   String transcript = '';
   String apiUrl = defaultIeltsApiUrl;
+  String? chatError;
+  String failedMessage = '';
   bool listening = false, loading = false, speechReady = false;
 
   @override
@@ -111,25 +113,45 @@ class _VoiceScreenState extends State<VoiceScreen> {
     }
   }
 
-  Future<void> _send() async {
-    final message = input.text.trim().isNotEmpty ? input.text.trim() : transcript.trim();
+  Future<void> _send({String? retryMessage}) async {
+    final isRetry = retryMessage != null;
+    final message = (retryMessage ?? (input.text.trim().isNotEmpty ? input.text.trim() : transcript.trim())).trim();
     if (message.isEmpty || loading) return;
     if (listening) await speech.stop();
-    input.clear();
-    final history = messages.map((item) => {'role': item['role']!, 'text': item['text']!}).toList();
+    if (!isRetry) input.clear();
+
+    // On retry, the failed candidate message is already in the transcript.
+    final historyMessages = isRetry && messages.isNotEmpty && messages.last['role'] == 'candidate'
+        ? messages.take(messages.length - 1)
+        : messages;
+    final history = historyMessages
+        .map((item) => {'role': item['role']!, 'text': item['text']!})
+        .toList();
+
     setState(() {
-      messages.add({'role': 'candidate', 'text': message});
+      if (!isRetry) messages.add({'role': 'candidate', 'text': message});
       transcript = '';
       listening = false;
       loading = true;
+      chatError = null;
     });
     try {
-      final reply = await api.examinerReply(history: history, message: message, part: part);
+      final reply = (await api.examinerReply(history: history, message: message, part: part)).trim();
       if (!mounted) return;
-      setState(() => messages.add({'role': 'examiner', 'text': reply}));
+      if (reply.isEmpty) throw Exception('The examiner returned an empty reply. Please try again.');
+      setState(() {
+        messages.add({'role': 'examiner', 'text': reply});
+        chatError = null;
+        failedMessage = '';
+      });
       await tts.speak(reply);
     } catch (error) {
-      if (mounted) _notice(error.toString().replaceFirst('Exception: ', ''));
+      if (mounted) {
+        setState(() {
+          failedMessage = message;
+          chatError = error.toString().replaceFirst('Exception: ', '');
+        });
+      }
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -318,16 +340,44 @@ class _VoiceScreenState extends State<VoiceScreen> {
       Expanded(
         child: ListView.builder(
           padding: const EdgeInsets.fromLTRB(17, 15, 17, 10),
-          itemCount: messages.length + (loading ? 1 : 0),
+          itemCount: messages.length + ((loading || chatError != null) ? 1 : 0),
           itemBuilder: (context, index) {
             if (index == messages.length) {
-              return const Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: EdgeInsets.all(12),
-                  child: SizedBox(height: 21, width: 21, child: CircularProgressIndicator(strokeWidth: 2)),
-                ),
-              );
+              if (loading) {
+                return const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(height: 21, width: 21, child: CircularProgressIndicator(strokeWidth: 2)),
+                  ),
+                );
+              }
+              if (chatError != null) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(13),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF1ED),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFF2D6CD)),
+                  ),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Icon(Icons.cloud_off_rounded, color: Color(0xFFB95B43), size: 18),
+                    const SizedBox(width: 9),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('Could not reach the examiner', style: TextStyle(color: Color(0xFF8C3E2B), fontWeight: FontWeight.w900, fontSize: 11)),
+                      const SizedBox(height: 4),
+                      Text(chatError!, style: const TextStyle(color: Color(0xFF8C3E2B), fontSize: 10, height: 1.4)),
+                      TextButton.icon(
+                        onPressed: loading || failedMessage.isEmpty ? null : () => _send(retryMessage: failedMessage),
+                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                        label: const Text('Retry this answer'),
+                      ),
+                    ])),
+                  ]),
+                );
+              }
+              return const SizedBox.shrink();
             }
             final message = messages[index];
             final isCandidate = message['role'] == 'candidate';
