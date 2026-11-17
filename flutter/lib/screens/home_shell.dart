@@ -31,7 +31,7 @@ class _HomeShellState extends State<HomeShell> {
   int tab = 0;
   int section = 1;
 
-  final titles = const ['Your learning path', 'Speaking studio', 'Cue card library', 'Vocabulary lab', 'AI translator'];
+  final titles = const ['Your learning path', 'Speaking studio', 'Cue card library', 'Dictionary', 'AI translator'];
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +39,7 @@ class _HomeShellState extends State<HomeShell> {
       learningPath(),
       VoiceScreen(prefs: widget.prefs),
       CueCardsScreen(prefs: widget.prefs),
-      const VocabularyScreen(),
+      VocabularyScreen(prefs: widget.prefs),
       TranslatorScreen(prefs: widget.prefs),
     ];
 
@@ -82,7 +82,7 @@ class _HomeShellState extends State<HomeShell> {
           NavigationDestination(icon: Icon(Icons.space_dashboard_outlined), selectedIcon: Icon(Icons.space_dashboard_rounded), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.graphic_eq_outlined), selectedIcon: Icon(Icons.graphic_eq_rounded), label: 'Speaking'),
           NavigationDestination(icon: Icon(Icons.style_outlined), selectedIcon: Icon(Icons.style_rounded), label: 'Cue Cards'),
-          NavigationDestination(icon: Icon(Icons.auto_stories_outlined), selectedIcon: Icon(Icons.auto_stories_rounded), label: 'Vocabulary'),
+          NavigationDestination(icon: Icon(Icons.auto_stories_outlined), selectedIcon: Icon(Icons.auto_stories_rounded), label: 'Dictionary'),
           NavigationDestination(icon: Icon(Icons.translate_rounded), selectedIcon: Icon(Icons.translate_rounded), label: 'Translate'),
         ],
       ),
@@ -229,6 +229,14 @@ class _HomeShellState extends State<HomeShell> {
             subtitle: 'Understand phrases and express ideas naturally',
             accent: const Color(0xFF3A8FB5),
             onTap: () => setState(() => tab = 4),
+          ),
+          const SizedBox(height: 9),
+          PremiumFeatureTile(
+            icon: Icons.menu_book_rounded,
+            title: 'English dictionary',
+            subtitle: 'Definitions, IPA, examples and Bangla meanings',
+            accent: const Color(0xFFC28D2B),
+            onTap: () => setState(() => tab = 3),
           ),
           const SizedBox(height: 24),
           PremiumSectionHeading('Your learning roadmap', action: '${doneCount}/10 units'),
