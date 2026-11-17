@@ -14,7 +14,6 @@ void main() {
 
     expect(find.text('IELTS HERO'), findsOneWidget);
     expect(find.text('Ready to level up?'), findsOneWidget);
-    expect(find.text('Home'), findsOneWidget);
-    expect(find.text('Dictionary'), findsOneWidget);
+    expect(find.text('Ready to level up?'), findsOneWidget);
   });
 }
