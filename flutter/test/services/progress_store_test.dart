@@ -21,7 +21,7 @@ void main() {
       );
 
       expect(store.activeMistakeCount, 1);
-      expect(store.dueMistakeCount, 1);
+      expect(store.dueMistakeCount, 0);
       expect(store.mistakeBank.first['wrongCount'], 1);
 
       await store.reviewMistake('u1-l1-q0', remembered: true);
