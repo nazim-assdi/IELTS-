@@ -9,6 +9,7 @@ import 'voice_screen.dart';
 import 'cue_cards_screen.dart';
 import 'vocabulary_screen.dart';
 import 'translator_screen.dart';
+import 'study_planner_screen.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({
@@ -110,7 +111,7 @@ class _HomeShellState extends State<HomeShell> {
     final doneCount = units.where((number) => List.generate(4, (i) => i + 1)
         .every((lesson) => completed.contains('u$number-l$lesson'))).length;
     final dailyDone = progress.todayCompletedLessons;
-    final dailyGoal = 5;
+    final dailyGoal = progress.dailyLessonGoal;
     final dailyProgress = (dailyDone / dailyGoal).clamp(0.0, 1.0).toDouble();
 
     return RefreshIndicator(
@@ -182,7 +183,7 @@ class _HomeShellState extends State<HomeShell> {
                 ),
                 const SizedBox(width: 12),
                 const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Five focused lessons', style: TextStyle(fontWeight: FontWeight.w900, color: IeltsPalette.ink)),
+                  Text('$dailyGoal focused lessons', style: TextStyle(fontWeight: FontWeight.w900, color: IeltsPalette.ink)),
                   SizedBox(height: 3),
                   Text('Build a study habit that lasts', style: TextStyle(fontSize: 11, color: IeltsPalette.muted)),
                 ])),
@@ -237,6 +238,14 @@ class _HomeShellState extends State<HomeShell> {
             subtitle: 'Definitions, IPA, examples and Bangla meanings',
             accent: const Color(0xFFC28D2B),
             onTap: () => setState(() => tab = 3),
+          ),
+          const SizedBox(height: 9),
+          PremiumFeatureTile(
+            icon: Icons.event_note_rounded,
+            title: 'Personal study planner',
+            subtitle: 'Set daily goals, follow a checklist and review your last 7 days',
+            accent: const Color(0xFF5576A7),
+            onTap: _openStudyPlanner,
           ),
           const SizedBox(height: 24),
           PremiumSectionHeading('Your learning roadmap', action: '${doneCount}/10 units'),
@@ -449,6 +458,19 @@ class _HomeShellState extends State<HomeShell> {
         ),
       ),
     );
+  }
+
+  Future<void> _openStudyPlanner() async {
+    await Navigator.push(context, MaterialPageRoute(
+      builder: (_) => StudyPlannerScreen(
+        prefs: widget.prefs,
+        onOpenTab: (nextTab) {
+          Navigator.pop(context);
+          if (mounted) setState(() => tab = nextTab);
+        },
+      ),
+    ));
+    if (mounted) setState(() {});
   }
 
   void _showTheme() {
