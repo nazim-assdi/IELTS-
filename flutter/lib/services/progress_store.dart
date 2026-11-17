@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ProgressStore {
@@ -38,7 +39,7 @@ class ProgressStore {
   int get dailyLessonGoal => (prefs.getInt('dailyLessonGoal') ?? 5).clamp(1, 10);
   int get dailyStudyMinutesGoal {
     final value = prefs.getInt('dailyStudyMinutesGoal') ?? 30;
-    return const [20, 30, 45, 60].contains(value) ? value : 30;
+    return const [20, 30, 40].contains(value) ? value : 30;
   }
 
   List<String> get todayPlanTaskIds => planTaskIdsForDate(DateTime.now());
@@ -60,7 +61,7 @@ class ProgressStore {
       prefs.setInt('dailyLessonGoal', value.clamp(1, 10));
 
   Future<void> setDailyStudyMinutesGoal(int value) async {
-    if (!const [20, 30, 45, 60].contains(value)) return;
+    if (!const [20, 30, 40].contains(value)) return;
     await prefs.setInt('dailyStudyMinutesGoal', value);
   }
 
@@ -118,6 +119,50 @@ class ProgressStore {
     await prefs.setInt('todayCompletedLessons', todayCompletedLessons + 1);
     await prefs.setInt('todayPracticeMinutes', todayPracticeMinutes + 4);
     await prefs.setInt('studyCount_$_todayKey', lessonCountForDate(DateTime.now()) + 1);
+  }
+
+  List<Map<String, dynamic>> get speakingEvaluationHistory {
+    final raw = prefs.getStringList('speakingEvaluationHistory') ?? <String>[];
+    return raw.map((item) {
+      try {
+        final decoded = jsonDecode(item);
+        return decoded is Map ? Map<String, dynamic>.from(decoded) : <String, dynamic>{};
+      } catch (_) {
+        return <String, dynamic>{};
+      }
+    }).where((item) => item.isNotEmpty).toList();
+  }
+
+  Map<String, dynamic>? get latestSpeakingEvaluation {
+    final history = speakingEvaluationHistory;
+    return history.isEmpty ? null : history.first;
+  }
+
+  Future<void> recordSpeakingEvaluation(Map<String, dynamic> result) async {
+    final rawBand = result['overallBand'];
+    final parsedBand = rawBand is num ? rawBand.toDouble() : double.tryParse('$rawBand');
+    if (parsedBand == null || !parsedBand.isFinite || parsedBand < 0 || parsedBand > 9) {
+      throw const FormatException('The speaking assessment did not contain a valid band estimate.');
+    }
+
+    await setBand(parsedBand);
+    await _resetDailyCountersIfNeeded();
+    await _recordStudyDay();
+
+    final record = <String, dynamic>{
+      'date': DateTime.now().toIso8601String(),
+      'overallBand': parsedBand,
+      'fluencyCoherence': result['fluencyCoherence'],
+      'lexicalResource': result['lexicalResource'],
+      'grammaticalRangeAccuracy': result['grammaticalRangeAccuracy'],
+      'pronunciation': result['pronunciation'],
+      'strengths': result['strengths'] is List ? result['strengths'] : <dynamic>[],
+      'improvements': result['improvements'] is List ? result['improvements'] : <dynamic>[],
+      'improvedSample': result['improvedSample']?.toString() ?? '',
+    };
+    final history = prefs.getStringList('speakingEvaluationHistory') ?? <String>[];
+    history.insert(0, jsonEncode(record));
+    await prefs.setStringList('speakingEvaluationHistory', history.take(20).toList());
   }
 
   Future<void> setBand(double value) => prefs.setDouble('predictedBand', value);
