@@ -286,7 +286,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
 
   Future<void> _openLiveVoice() async {
     await Navigator.push(context, MaterialPageRoute(
-      builder: (_) => LiveVoiceScreen(baseUrl: apiUrl, initialPart: part),
+      builder: (_) => LiveVoiceScreen(baseUrl: apiUrl, initialPart: part, prefs: widget.prefs),
     ));
   }
 
