@@ -109,7 +109,7 @@ class _HomeShellState extends State<HomeShell> {
         .toList();
     final doneCount = units.where((number) => List.generate(4, (i) => i + 1)
         .every((lesson) => completed.contains('u$number-l$lesson'))).length;
-    final dailyDone = widget.prefs.getInt('todayCompletedLessons') ?? 0;
+    final dailyDone = progress.todayCompletedLessons;
     final dailyGoal = 5;
     final dailyProgress = (dailyDone / dailyGoal).clamp(0.0, 1.0).toDouble();
 
