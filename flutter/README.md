@@ -1,56 +1,75 @@
 # IELTS HERO — Flutter edition
 
-This is the first Flutter/Dart migration pass based on the uploaded IELTS HERO React + TypeScript project.
+A four-skill IELTS learning companion built with Flutter and a server-side Gemini API.
 
-## Included
-- Flutter Material 3 app shell with Learn, Voice, Cue Cards and Vocabulary tabs.
-- The original 100-unit curriculum and 10 learning sections.
-- Two practice lessons per unit.
-- Local XP, gems and lesson progress using shared_preferences.
-- Paper Warm, Soft Sage and Midnight Slate themes.
-- Speaking practice with speech-to-text and text-to-speech where supported.
-- Cue-card bank and vocabulary practice.
-- Server-side Gemini API copied from the original project into backend/server.ts.
+## Learning experience
 
-## Porting status
-This is a first migration pass, not a complete feature-parity claim. Analytics, weekly reports, leaderboard, phrasebook, vocabulary mastery, offline sync reconciliation, sound effects and some modal flows still need separate Flutter implementations. The current Voice Studio is turn-based examiner chat, not Gemini Live low-latency audio.
+- 100 curriculum units with four AI-supported lesson slots per unit (400 lesson slots).
+- Four-skill lesson packs: Speaking, Listening, Reading and Writing, with Bangla explanations and vocabulary.
+- AI examiner chat and Gemini Live voice practice through the Render backend.
+- English dictionary with definitions, pronunciation, examples, synonyms, saved words and recent searches.
+- English ↔ Bangla translation.
+- Cue-card library and vocabulary practice.
+- Personal study planner, daily goals, streaks and local learning progress.
+- Adaptive Mistake Review: incorrect lesson answers are saved locally and scheduled for review at increasing intervals (1, 3, 7, 14 and 30 days).
+- IELTS Mock Test Centre with Academic/General Training Task 1 prompts, short Listening and Reading diagnostics, Writing workspace, typed Speaking reflection, saved attempts and AI-generated skill feedback with a seven-day practice plan.
 
-The original supplied image files are not included in this initial GitHub branch; built-in Flutter icons and gradients are used so the source remains lightweight.
+## Mock Test Centre — current scope
+
+The current release contains a **35-minute learning diagnostic preview**, not a full-length IELTS mock examination. It includes four objective questions each for Listening and Reading, two Writing prompts and one typed Speaking reflection. The Listening passage is spoken using the device's English text-to-speech voice; it is not an original recorded IELTS-style audio track.
+
+Only objective Listening and Reading answers are shown as percentages. Writing and typed Speaking responses receive qualitative coaching only. A typed response cannot measure real spoken fluency or pronunciation. AI feedback is for practice and is not an official IELTS score or an examiner's assessment.
+
+The full IELTS Academic test is 2 hours 45 minutes: Listening approximately 30 minutes, Reading 60 minutes, Writing 60 minutes, and Speaking 11–14 minutes. The current diagnostic preview does not yet reproduce the complete official question counts, section timings, recordings or examiner interview. See the [official IELTS test format](https://ielts.org/take-a-test/test-types/ielts-academic-test).
+
+## Adaptive practice
+
+When a learner selects an incorrect answer in a lesson, IELTS HERO stores the question, selected answer, correct answer and explanation in a local mistake bank. Learners can reveal the answer and mark whether they remembered it. Correct recalls move to longer review intervals; missed recalls return to the next-day queue. The mistake bank is stored on the device using SharedPreferences and is not yet synchronised across devices.
+
+Mock test attempts are saved locally (up to the latest 20). When the backend is available, the app requests Gemini feedback based on submitted responses and objective question results. If AI analysis is unavailable, the screen shows a local next-step recommendation instead.
+
+## Technical architecture
+
+- Flutter Material 3 application.
+- `shared_preferences` for local progress, study plan, mock history and mistake review.
+- Render Node.js backend under `flutter/backend`.
+- Gemini API key stays in Render's private environment variables; it must never be placed in Flutter source code or the APK.
+- Current backend defaults are configured in `flutter/backend/server.ts`; optional Render environment overrides include `GEMINI_TEXT_MODEL`, `GEMINI_TEXT_FALLBACK_MODELS` and `GEMINI_LIVE_MODEL`.
+- `/health` exposes service readiness and configured model names.
 
 ## Setup
+
 Install Flutter stable and Android Studio, then run:
 
 ```powershell
-flutter create . --platforms=android,windows,macos,linux,web
-New-Item -ItemType Directory -Force .\\android\\app\\src\\main\\res\\drawable | Out-Null
-Copy-Item .\\config\\AndroidManifest.xml .\\android\\app\\src\\main\\AndroidManifest.xml -Force
-Copy-Item .\\config\\ielts_hero_icon.xml .\\android\\app\\src\\main\\res\\drawable\\ielts_hero_icon.xml -Force
+flutter create . --platforms=android,web
+New-Item -ItemType Directory -Force .\android\app\src\main\res\drawable | Out-Null
+Copy-Item .\config\AndroidManifest.xml .\android\app\src\main\AndroidManifest.xml -Force
+Copy-Item .\config\ielts_hero_icon.xml .\android\app\src\main\res\drawable\ielts_hero_icon.xml -Force
 flutter pub get
 flutter analyze
+flutter test
 flutter run
 ```
 
-Build Android and Windows:
+Build Android:
 
 ```powershell
 flutter build apk --release
-flutter build windows --release
 ```
 
-## Android app identity and microphone\n\nThe Android manifest requests microphone and internet access for speech recognition and sets the installed app name to **IELTS HERO**. The launcher icon is the custom green IELTS HERO mark. Android may still show a separate microphone permission prompt the first time you tap the mic.\n\n## Gemini model and free usage
+## Gemini backend
 
-The backend is pinned to **`gemini-2.5-flash`**. It uses the Gemini Developer API through Google AI Studio; it does not require a Gemini Advanced subscription. Create an API key in [Google AI Studio](https://aistudio.google.com/app/apikey), then add it as the private `GEMINI_API_KEY` environment secret in your Render service. Do not put the key in Flutter code or share it in the app.
-
-Google lists Gemini 2.5 Flash with free-tier input and output tokens, subject to account/model rate limits and availability. Free access is limited, not unlimited; requests may be temporarily rejected when the quota is reached. Check the current [official Gemini API pricing and free-tier limits](https://ai.google.dev/gemini-api/docs/pricing).
-
-## Gemini backend\nIn a separate terminal:
+In a separate terminal:
 
 ```powershell
 cd backend
 npm install
 ```
 
-Copy `.env.example` to `.env`, set `GEMINI_API_KEY`, then run `npm run dev`. Never put the Gemini API key in Flutter source code. Deploy the backend to HTTPS and launch Flutter with:
+Create a local `.env` from `.env.example` and set `GEMINI_API_KEY` for local development. For Render, set it as a private environment variable in the service dashboard. Do not paste the key into chat, commit it to GitHub, or embed it in the APK.
+
+Deploy the backend to HTTPS and launch Flutter with:
 
 ```powershell
 flutter run --dart-define=IELTS_API_URL=https://YOUR-API-HOST
@@ -58,8 +77,8 @@ flutter run --dart-define=IELTS_API_URL=https://YOUR-API-HOST
 
 For Android Emulator, the host machine is commonly `http://10.0.2.2:3000`.
 
-## Microphone permissions
-After generating platform folders, add the required microphone/speech permissions to AndroidManifest.xml and any other target platform configuration. Speech recognition availability depends on platform services.
+## Platform and test limitations
 
-## Source
-Original project: uploaded IELTS HERO React + TypeScript + Vite + Express + Gemini source.
+The checked-in CI workflow currently analyzes and builds the Android release APK. Windows, macOS, Linux and iOS need their own platform builds, signing and device testing. Microphone and speech-recognition availability depends on platform permissions and installed speech services.
+
+Use official IELTS sample materials and preparation guidance alongside this app: [IELTS preparation resources](https://ielts.org/take-a-test/preparation-resources).
