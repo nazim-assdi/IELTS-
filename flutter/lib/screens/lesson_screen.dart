@@ -101,7 +101,7 @@ class _LessonScreenState extends State<LessonScreen> {
     ];
   }
 
-  void check() {
+  Future<void> check() async {
     if (checked || selected == null) return;
     final q = questions[index];
     final correct = q['type'] == 'choice'
@@ -112,6 +112,22 @@ class _LessonScreenState extends State<LessonScreen> {
                 ? selected?.trim() == q['answer']
                 : selected == 'done';
     setState(() { checked = true; if (correct) score++; });
+    if (!correct && q['type'] != 'shadow') {
+      final options = (q['options'] as List? ?? []).map((item) => item.toString()).toList();
+      await store.recordMistake(
+        id: 'u${widget.unitNumber}-l${widget.lessonNumber}-q$index',
+        skill: widget.lessonNumber == 3 ? 'Vocabulary' : widget.lessonNumber == 2 ? 'Grammar' : 'Core skills',
+        prompt: q['prompt']?.toString() ?? topic.title,
+        userAnswer: selected ?? '',
+        correctAnswer: q['answer']?.toString() ?? options.join(' / '),
+        explanation: q['why']?.toString() ?? '',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Added to your adaptive Mistake Review.')),
+        );
+      }
+    }
   }
 
   Future<void> next() async {
