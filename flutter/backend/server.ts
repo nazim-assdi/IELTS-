@@ -261,6 +261,49 @@ Include exactly 5 vocabulary items, exactly 2 speaking tips, at least 1 listenin
   }
 });
 
+
+app.post('/api/gemini/analyze-mock-test', async (req, res) => {
+  try {
+    const payload = req.body ?? {};
+    const sections = payload.sections && typeof payload.sections === 'object' ? payload.sections : {};
+    const writing = String(payload.writing ?? '').slice(0, 9000);
+    const speaking = String(payload.speaking ?? '').slice(0, 5000);
+    const metrics = {
+      listeningCorrect: Number(payload.listeningCorrect ?? 0),
+      listeningTotal: Number(payload.listeningTotal ?? 4),
+      readingCorrect: Number(payload.readingCorrect ?? 0),
+      readingTotal: Number(payload.readingTotal ?? 4),
+      writingWords: Number(payload.writingWords ?? 0),
+      speakingWords: Number(payload.speakingWords ?? 0),
+      sectionCompletion: sections,
+    };
+    const prompt = `You are an IELTS learning coach. Analyse this practice diagnostic carefully. Do not claim this is an official IELTS score. Objective question counts are limited and cannot produce a valid IELTS band. Writing and speaking are text samples only; do not assess pronunciation or real spoken fluency from typed text. Identify evidence-based strengths, weaknesses and a practical adaptive plan. Return JSON only with this schema:
+{
+  "summary": "2 concise sentences",
+  "skillAnalysis": [
+    {"skill":"Listening","level":"Needs practice|Developing|Promising","evidence":"...","nextSteps":["...","..."]},
+    {"skill":"Reading","level":"Needs practice|Developing|Promising","evidence":"...","nextSteps":["...","..."]},
+    {"skill":"Writing","level":"Needs practice|Developing|Promising","evidence":"...","nextSteps":["...","..."]},
+    {"skill":"Speaking","level":"Needs practice|Developing|Promising","evidence":"...","nextSteps":["...","..."]}
+  ],
+  "prioritySkill":"one of Listening, Reading, Writing, Speaking",
+  "sevenDayPlan":["Day 1: ...","Day 2: ...","Day 3: ...","Day 4: ...","Day 5: ...","Day 6: ...","Day 7: ..."]
+}
+Use only the submitted evidence. Do not invent errors in the candidate's writing or speaking. If a response is empty, say there is not enough evidence. Keep all advice concrete and encouraging.
+DIAGNOSTIC METRICS:
+${JSON.stringify(metrics)}
+WRITING TASK 1:
+${writing}
+WRITING TASK 2:
+${String(payload.writingTask2 ?? '').slice(0, 5000)}
+TYPED SPEAKING PRACTICE:
+${speaking}`;
+    res.json(parseJson(await generate(prompt)));
+  } catch (error) {
+    sendApiError(res, error, 'Mock test analysis failed');
+  }
+});
+
 // The Gemini key is kept on this server. Mobile clients only connect to this WebSocket.
 const httpServer = createServer(app);
 const liveWss = new WebSocketServer({ noServer: true, maxPayload: 128 * 1024 });
