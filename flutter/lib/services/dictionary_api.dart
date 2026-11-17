@@ -44,6 +44,7 @@ class DictionaryEntry {
   final List<DictionaryDefinition> definitions;
 
   factory DictionaryEntry.fromJson(Map<String, dynamic> json) {
+    final directPhonetic = (json['phonetic'] ?? '').toString().trim();
     final phonetics = (json['phonetics'] as List? ?? const [])
         .whereType<Map>()
         .map((item) => (item['text'] ?? '').toString().trim())
@@ -63,7 +64,7 @@ class DictionaryEntry {
     }
     return DictionaryEntry(
       word: (json['word'] ?? '').toString(),
-      phonetic: (json['phonetic'] ?? (phonetics.isEmpty ? '' : phonetics.first)).toString(),
+      phonetic: directPhonetic.isNotEmpty ? directPhonetic : (phonetics.isEmpty ? '' : phonetics.first),
       origin: (json['origin'] ?? '').toString(),
       definitions: definitions,
     );
