@@ -154,6 +154,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
           'readingTotal': _reading.length,
           'writingWords': writingWords,
           'speakingWords': speakingWords,
+          'testType': _academic ? 'Academic' : 'General Training',
           'sections': sections,
         },
         writingTask1: _writingTask1.text,
