@@ -160,7 +160,15 @@ class _VoiceScreenState extends State<VoiceScreen> {
         failedMessage = '';
       });
       _scrollChatToLatest();
-      await tts.speak(reply);
+      // A successful AI reply must not be marked as a failed chat turn merely because
+      // Android's local TTS engine could not speak it. Keep retry for network/API errors.
+      try {
+        await tts.speak(reply);
+      } catch (voiceError) {
+        if (mounted) {
+          _notice('The examiner replied, but voice playback failed. Tap the speaker button to try again.');
+        }
+      }
     } catch (error) {
       if (mounted) {
         setState(() {
