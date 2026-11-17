@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/gemini_api.dart';
+import '../services/progress_store.dart';
 
 class MockTestScreen extends StatefulWidget {
   const MockTestScreen({super.key, required this.prefs, this.onOpenSpeaking});
