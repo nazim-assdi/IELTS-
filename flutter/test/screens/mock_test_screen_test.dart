@@ -9,8 +9,8 @@ void main() {
   testWidgets('Mock Test Centre landing page renders and starts diagnostic', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
-    await tester.view.setPhysicalSize(const Size(1080, 1920));
-    await tester.view.setDevicePixelRatio(1);
+    tester.view.physicalSize = const Size(1080, 1920);
+    tester.view.devicePixelRatio = 1;
 
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: MockTestScreen(prefs: prefs))));
     await tester.pumpAndSettle();
@@ -23,7 +23,7 @@ void main() {
     expect(find.text('Listening'), findsWidgets);
 
     await tester.pumpWidget(const SizedBox());
-    await tester.view.resetPhysicalSize();
-    await tester.view.resetDevicePixelRatio();
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
   });
 }
