@@ -60,13 +60,15 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
         (event) => unawaited(_handleServerMessage(event)),
         onError: (Object error) {
           if (mounted) {
-            setState(() { connected = false; connecting = false; status = 'Connection error'; });
+            setState(() { connected = false; connecting = false; microphoneOn = false; status = 'Connection lost'; });
             _notice('Live voice connection error: $error');
+            unawaited(disconnect());
           }
         },
         onDone: () {
           if (mounted) {
             setState(() { connected = false; connecting = false; microphoneOn = false; status = 'Disconnected'; });
+            unawaited(stopMicrophone());
           }
         },
       );
@@ -167,17 +169,30 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
         autoGain: true,
         echoCancel: true,
         noiseSuppress: true,
+        // 1,280 bytes at 16 kHz mono PCM16 = 40 ms per packet.
+        // Small packets reduce conversational latency without starving the Live model.
+        streamBufferSize: 1280,
       ));
+      if (!mounted) {
+        await recorder.stop();
+        return;
+      }
+      setState(() { microphoneOn = true; status = 'Listening • Speak naturally'; });
       audioSubscription = stream.listen((chunk) {
         final ws = channel;
-        if (microphoneOn && connected && ws != null) {
-          ws.sink.add(jsonEncode({'type': 'audio', 'data': base64Encode(chunk)}));
+        if (microphoneOn && connected && ws != null && chunk.isNotEmpty) {
+          try {
+            ws.sink.add(jsonEncode({'type': 'audio', 'data': base64Encode(chunk)}));
+          } catch (error) {
+            _notice('Could not send microphone audio: $error');
+          }
         }
       }, onError: (Object error) {
         _notice('Microphone stream error: $error');
+        unawaited(stopMicrophone());
       });
-      if (mounted) setState(() { microphoneOn = true; status = 'Listening • Speak naturally'; });
     } catch (error) {
+      if (mounted) setState(() { microphoneOn = false; status = 'Microphone unavailable'; });
       _notice('Could not start microphone: $error');
     }
   }
