@@ -28,6 +28,7 @@ class _VocabularyScreenState extends State<VocabularyScreen> {
   bool translating = false;
   bool speaking = false;
   bool showSaved = false;
+  int lookupGeneration = 0;
   List<String> favourites = [];
   List<String> recent = [];
 
@@ -51,6 +52,7 @@ class _VocabularyScreenState extends State<VocabularyScreen> {
   Future<void> _lookup([String? requestedWord]) async {
     final word = (requestedWord ?? searchController.text).trim().toLowerCase();
     if (word.isEmpty || searching) return;
+    final requestId = ++lookupGeneration;
     searchController.text = word;
     FocusScope.of(context).unfocus();
     setState(() {
@@ -63,11 +65,12 @@ class _VocabularyScreenState extends State<VocabularyScreen> {
 
     try {
       final found = await dictionary.lookup(word);
-      if (!mounted) return;
+      if (!mounted || requestId != lookupGeneration) return;
       final updatedRecent = [word, ...recent.where((item) => item != word)].take(12).toList();
       setState(() {
         entry = found;
         recent = updatedRecent;
+        searching = false;
       });
       await widget.prefs.setStringList('dictionary_recent', updatedRecent);
 
@@ -78,18 +81,24 @@ class _VocabularyScreenState extends State<VocabularyScreen> {
           final translated = await ai.translateText(
             text: firstDefinition,
             targetLanguage: 'Bengali',
-          );
-          if (mounted) setState(() => banglaMeaning = translated.trim());
+          ).timeout(const Duration(seconds: 28));
+          if (mounted && requestId == lookupGeneration) {
+            setState(() => banglaMeaning = translated.trim());
+          }
         } catch (_) {
-          if (mounted) setState(() => banglaMeaning = 'বাংলা অর্থ পেতে ইন্টারনেট সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।');
+          if (mounted && requestId == lookupGeneration) {
+            setState(() => banglaMeaning = 'বাংলা অর্থ এই মুহূর্তে পাওয়া যাচ্ছে না। পরে আবার চেষ্টা করুন।');
+          }
         } finally {
-          if (mounted) setState(() => translating = false);
+          if (mounted && requestId == lookupGeneration) setState(() => translating = false);
         }
       }
     } catch (error) {
-      if (mounted) setState(() => errorMessage = error.toString().replaceFirst('Exception: ', ''));
+      if (mounted && requestId == lookupGeneration) {
+        setState(() => errorMessage = error.toString().replaceFirst('Exception: ', ''));
+      }
     } finally {
-      if (mounted) setState(() => searching = false);
+      if (mounted && requestId == lookupGeneration) setState(() => searching = false);
     }
   }
 
