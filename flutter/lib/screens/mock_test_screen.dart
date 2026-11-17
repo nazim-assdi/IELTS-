@@ -128,7 +128,8 @@ class _MockTestScreenState extends State<MockTestScreen> {
       'nextAction': _recommendation(ordered.first.key),
     };
     try {
-      final aiAnalysis = await GeminiApi(baseUrl: defaultIeltsApiUrl).analyzeMockTest(
+      final savedApiUrl = widget.prefs.getString('ielts_api_url')?.trim() ?? '';
+      final aiAnalysis = await GeminiApi(baseUrl: savedApiUrl.isEmpty ? defaultIeltsApiUrl : savedApiUrl).analyzeMockTest(
         metrics: {
           'listeningCorrect': _listeningScore,
           'listeningTotal': _listening.length,
