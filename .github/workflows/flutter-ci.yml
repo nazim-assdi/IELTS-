@@ -1,9 +1,5 @@
 name: Flutter CI
 on:
-  push:
-    paths:
-      - 'flutter/**'
-      - '.github/workflows/flutter-ci.yml'
   pull_request:
     paths:
       - 'flutter/**'
