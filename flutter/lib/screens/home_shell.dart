@@ -158,9 +158,9 @@ class _HomeShellState extends State<HomeShell> {
               ),
               PremiumMetricCard(
                 icon: Icons.workspace_premium_rounded,
-                label: 'PREDICTED BAND',
+                label: 'LATEST SPEAKING ESTIMATE',
                 value: progress.band == 0 ? 'Not assessed' : progress.band.toStringAsFixed(1),
-                detail: 'AI estimate',
+                detail: 'Transcript-based practice estimate',
                 tint: const Color(0xFFECEBFA),
                 iconColor: const Color(0xFF7770B9),
               ),
