@@ -305,6 +305,18 @@ app.post('/api/gemini/analyze-mock-test', async (req, res) => {
     {"skill":"Writing","level":"Needs practice|Developing|Promising","evidence":"...","nextSteps":["...","..."]},
     {"skill":"Speaking","level":"Needs practice|Developing|Promising","evidence":"...","nextSteps":["...","..."]}
   ],
+  "writingCriteria":[
+    {"criterion":"Task Achievement / Task Response","evidence":"...","nextSteps":["..."]},
+    {"criterion":"Coherence and Cohesion","evidence":"...","nextSteps":["..."]},
+    {"criterion":"Lexical Resource","evidence":"...","nextSteps":["..."]},
+    {"criterion":"Grammatical Range and Accuracy","evidence":"...","nextSteps":["..."]}
+  ],
+  "speakingCriteria":[
+    {"criterion":"Lexical Resource","status":"Assessed from typed transcript","evidence":"...","nextSteps":["..."]},
+    {"criterion":"Grammatical Range and Accuracy","status":"Assessed from typed transcript","evidence":"...","nextSteps":["..."]},
+    {"criterion":"Fluency and Coherence","status":"Not assessed from typed response","evidence":"A typed response cannot show real-time fluency.","nextSteps":["Use the microphone Speaking Studio for a spoken assessment."]},
+    {"criterion":"Pronunciation","status":"Not assessed from typed response","evidence":"A typed response contains no audio evidence.","nextSteps":["Use the microphone Speaking Studio for pronunciation practice."]}
+  ],
   "prioritySkill":"one of Listening, Reading, Writing, Speaking",
   "sevenDayPlan":["Day 1: ...","Day 2: ...","Day 3: ...","Day 4: ...","Day 5: ...","Day 6: ...","Day 7: ..."]
 }
