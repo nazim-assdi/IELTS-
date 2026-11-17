@@ -115,8 +115,24 @@ class _MockTestScreenState extends State<MockTestScreen> {
       MapEntry('Listening', listening),
       MapEntry('Reading', reading),
     ]..sort((a, b) => a.value.compareTo(b.value));
+    final answerReview = [
+      ..._answerReview(_listening, 0, 'Listening'),
+      ..._answerReview(_reading, 4, 'Reading'),
+    ];
+    final mistakeStore = ProgressStore(widget.prefs);
+    for (final item in answerReview.where((answer) => answer['isCorrect'] != true)) {
+      await mistakeStore.recordMistake(
+        id: 'mock-${item['skill']?.toString().toLowerCase()}-${item['index']}',
+        skill: item['skill'].toString(),
+        prompt: item['question'].toString(),
+        userAnswer: item['selectedAnswer'].toString(),
+        correctAnswer: item['correctAnswer'].toString(),
+        explanation: item['explanation'].toString(),
+      );
+    }
     final record = <String, dynamic>{
       'date': DateTime.now().toIso8601String(),
+      'answerReview': answerReview,
       'listeningCorrect': _listeningScore,
       'listeningTotal': _listening.length,
       'readingCorrect': _readingScore,
@@ -169,6 +185,22 @@ class _MockTestScreenState extends State<MockTestScreen> {
       default: return 'Practise speaking for 60–90 seconds, then review fluency, vocabulary and sentence accuracy.';
     }
   }
+
+  List<Map<String, dynamic>> _answerReview(List<_Question> questions, int offset, String skill) =>
+      List.generate(questions.length, (index) {
+        final question = questions[index];
+        final selectedIndex = _answers[offset + index];
+        final isCorrect = selectedIndex == question.answer;
+        return <String, dynamic>{
+          'skill': skill,
+          'index': index + 1,
+          'question': question.prompt,
+          'selectedAnswer': selectedIndex == null ? 'Not answered' : question.options[selectedIndex],
+          'correctAnswer': question.options[question.answer],
+          'isCorrect': isCorrect,
+          'explanation': question.explanation,
+        };
+      });
 
   int _wordCount(String value) => RegExp(r"\b[\w’'-]+\b").allMatches(value).length;
 
@@ -559,6 +591,30 @@ class _MockTestScreenState extends State<MockTestScreen> {
       const SizedBox(height: 12),
       Text('Listening: ${data['listeningCorrect']}/4 correct • Reading: ${data['readingCorrect']}/4 correct', style: const TextStyle(color: _muted, fontSize: 11)),
       Text('Writing: ${data['writingWords']} words • Speaking practice: ${data['speakingWords']} words', style: const TextStyle(color: _muted, fontSize: 11)),
+      if (data['answerReview'] is List) ...[
+        const SizedBox(height: 15),
+        const Text('REVIEW YOUR ANSWERS', style: TextStyle(color: _green, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1)),
+        const SizedBox(height: 5),
+        ...(data['answerReview'] as List).whereType<Map>().map((raw) {
+          final item = Map<String, dynamic>.from(raw);
+          final correct = item['isCorrect'] == true;
+          return Card(
+            margin: const EdgeInsets.only(bottom: 7),
+            child: ExpansionTile(
+              leading: Icon(correct ? Icons.check_circle_rounded : Icons.replay_circle_filled_rounded, color: correct ? _green : const Color(0xFFC47A35)),
+              title: Text(item['question']?.toString() ?? 'Practice question', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+              subtitle: Text(correct ? 'Correct answer' : 'Added to Mistake Review', style: TextStyle(color: correct ? _green : const Color(0xFFC47A35), fontSize: 10, fontWeight: FontWeight.w700)),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              children: [
+                Align(alignment: Alignment.centerLeft, child: Text('Your answer: ${item['selectedAnswer']}', style: const TextStyle(fontSize: 11))),
+                Align(alignment: Alignment.centerLeft, child: Text('Correct answer: ${item['correctAnswer']}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: _green))),
+                if ((item['explanation'] ?? '').toString().isNotEmpty)
+                  Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(top: 5), child: Text(item['explanation'].toString(), style: const TextStyle(fontSize: 11, color: _muted)))),
+              ],
+            ),
+          );
+        }),
+      ],
       Text('${history.length} saved attempt(s) on this device', style: const TextStyle(color: _muted, fontSize: 11)),
       const SizedBox(height: 16),
       FilledButton.icon(onPressed: _start, icon: const Icon(Icons.refresh_rounded), label: const Text('Try another diagnostic'), style: FilledButton.styleFrom(backgroundColor: _green, padding: const EdgeInsets.symmetric(vertical: 14))),
