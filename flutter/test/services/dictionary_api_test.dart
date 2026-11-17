@@ -85,8 +85,7 @@ void main() {
     test('rejects a phrase instead of sending it as one word', () async {
       final api = DictionaryApi(
         client: MockClient((_) async {
-          fail('The HTTP client must not be called for invalid input.');
-          return http.Response('', 500);
+          throw StateError('The HTTP client must not be called for invalid input.');
         }),
       );
       addTearDown(api.dispose);
