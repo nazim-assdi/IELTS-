@@ -268,6 +268,7 @@ app.post('/api/gemini/analyze-mock-test', async (req, res) => {
     const sections = payload.sections && typeof payload.sections === 'object' ? payload.sections : {};
     const writing = String(payload.writing ?? '').slice(0, 9000);
     const speaking = String(payload.speaking ?? '').slice(0, 5000);
+    const answerReview = Array.isArray(payload.answerReview) ? payload.answerReview.slice(0, 20) : [];
     const metrics = {
       listeningCorrect: Number(payload.listeningCorrect ?? 0),
       listeningTotal: Number(payload.listeningTotal ?? 4),
@@ -296,6 +297,8 @@ WRITING TASK 1:
 ${writing}
 WRITING TASK 2:
 ${String(payload.writingTask2 ?? '').slice(0, 5000)}
+OBJECTIVE QUESTION-BY-QUESTION REVIEW (selected answer, correct answer and explanation):
+${JSON.stringify(answerReview)}
 TYPED SPEAKING PRACTICE:
 ${speaking}`;
     res.json(parseJson(await generate(prompt)));
