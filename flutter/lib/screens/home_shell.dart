@@ -44,7 +44,7 @@ class _HomeShellState extends State<HomeShell> {
       CueCardsScreen(prefs: widget.prefs),
       VocabularyScreen(prefs: widget.prefs),
       TranslatorScreen(prefs: widget.prefs),
-      MockTestScreen(prefs: widget.prefs),
+      MockTestScreen(prefs: widget.prefs, onOpenSpeaking: () => setState(() => tab = 1)),
     ];
 
     return Scaffold(
