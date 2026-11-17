@@ -91,6 +91,7 @@ class GeminiApi {
     required String writingTask1,
     required String writingTask2,
     required String speakingResponse,
+    required List<Map<String, dynamic>> answerReview,
   }) async {
     if (!configured) throw Exception('AI analysis service is not connected.');
     final response = await http.post(
@@ -101,6 +102,7 @@ class GeminiApi {
         'writing': writingTask1,
         'writingTask2': writingTask2,
         'speaking': speakingResponse,
+        'answerReview': answerReview,
       }),
     ).timeout(const Duration(seconds: 120));
     if (response.statusCode != 200) throw Exception(_error(response));
