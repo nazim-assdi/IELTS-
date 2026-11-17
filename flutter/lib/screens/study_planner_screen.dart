@@ -279,7 +279,7 @@ class _StudyPlannerScreenState extends State<StudyPlannerScreen> {
           ),
           const SizedBox(width: 11),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('AI estimated band', style: TextStyle(color: IeltsPalette.muted, fontSize: 10, fontWeight: FontWeight.w700)),
+            const Text('Transcript-based practice estimate', style: TextStyle(color: IeltsPalette.muted, fontSize: 10, fontWeight: FontWeight.w700)),
             Text(band, style: const TextStyle(color: IeltsPalette.ink, fontSize: 21, fontWeight: FontWeight.w900)),
           ])),
           PremiumChip(dateLabel),
@@ -295,6 +295,10 @@ class _StudyPlannerScreenState extends State<StudyPlannerScreen> {
               Expanded(child: Text(item, style: const TextStyle(color: IeltsPalette.inkSoft, fontSize: 10, height: 1.4))),
             ]),
           )),
+        ],
+        if ((result['assessmentType'] ?? '').toString().isNotEmpty) ...[
+          const SizedBox(height: 7),
+          Text(result['assessmentType'].toString(), style: const TextStyle(color: IeltsPalette.muted, fontSize: 9, height: 1.35)),
         ],
         const SizedBox(height: 7),
         const Text('AI estimate only · Not an official IELTS result', style: TextStyle(color: IeltsPalette.muted, fontSize: 9)),
