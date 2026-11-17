@@ -18,10 +18,11 @@ void main() {
     expect(find.text('IELTS HERO • TEST CENTRE'), findsOneWidget);
     expect(find.text('Start diagnostic test'), findsOneWidget);
     await tester.tap(find.text('Start diagnostic test'));
-    await tester.pumpAndSettle();
+    await tester.pump();
     expect(find.text('DIAGNOSTIC IN PROGRESS'), findsOneWidget);
     expect(find.text('Listening'), findsWidgets);
 
+    await tester.pumpWidget(const SizedBox());
     await tester.view.resetPhysicalSize();
     await tester.view.resetDevicePixelRatio();
   });
