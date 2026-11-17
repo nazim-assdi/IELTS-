@@ -85,11 +85,12 @@ class _StudyPlannerScreenState extends State<StudyPlannerScreen> {
   @override
   Widget build(BuildContext context) {
     final doneIds = store.todayPlanTaskIds.toSet();
-    final totalMinutes = tasks.fold<int>(0, (sum, task) => sum + task.minutes);
     final completedMinutes = tasks
         .where((task) => doneIds.contains(task.id))
         .fold<int>(0, (sum, task) => sum + task.minutes);
-    final progress = (completedMinutes / totalMinutes).clamp(0.0, 1.0).toDouble();
+    final goalMinutes = store.dailyStudyMinutesGoal;
+    final goalMinutesDone = completedMinutes.clamp(0, goalMinutes);
+    final progress = (goalMinutesDone / goalMinutes).clamp(0.0, 1.0).toDouble();
 
     return Scaffold(
       appBar: AppBar(
@@ -107,7 +108,7 @@ class _StudyPlannerScreenState extends State<StudyPlannerScreen> {
             subtitle: 'A practical routine for balanced IELTS preparation. Adjust your targets and tick off each activity as you complete it.',
             trailing: const PremiumChip('PERSONAL PLAN', icon: Icons.event_note_rounded),
           ),
-          _todaySummary(progress, completedMinutes, totalMinutes, doneIds.length),
+          _todaySummary(progress, goalMinutesDone, goalMinutes, doneIds.length),
           const SizedBox(height: 22),
           const PremiumSectionHeading('Set your daily targets'),
           _goalSettings(),
@@ -118,6 +119,11 @@ class _StudyPlannerScreenState extends State<StudyPlannerScreen> {
           ]),
           ...tasks.map((task) => _taskCard(task, doneIds.contains(task.id))),
           const SizedBox(height: 22),
+          if (store.latestSpeakingEvaluation != null) ...[
+            const PremiumSectionHeading('Latest speaking assessment'),
+            _latestAssessment(store.latestSpeakingEvaluation!),
+            const SizedBox(height: 18),
+          ],
           const PremiumSectionHeading('Your last 7 days'),
           _weeklyActivity(),
           const SizedBox(height: 18),
@@ -189,7 +195,7 @@ class _StudyPlannerScreenState extends State<StudyPlannerScreen> {
       const SizedBox(height: 9),
       Wrap(
         spacing: 8,
-        children: [20, 30, 45, 60].map((value) => ChoiceChip(
+        children: [20, 30, 40].map((value) => ChoiceChip(
           label: Text('$value min'),
           selected: store.dailyStudyMinutesGoal == value,
           onSelected: (_) => _setMinuteGoal(value),
@@ -241,6 +247,55 @@ class _StudyPlannerScreenState extends State<StudyPlannerScreen> {
       ),
     ]),
   );
+
+  Widget _latestAssessment(Map<String, dynamic> result) {
+    final band = result['overallBand']?.toString() ?? '—';
+    final rawDate = DateTime.tryParse(result['date']?.toString() ?? '');
+    final dateLabel = rawDate == null
+        ? 'Recent assessment'
+        : '${rawDate.day.toString().padLeft(2, '0')}/${rawDate.month.toString().padLeft(2, '0')}/${rawDate.year}';
+    final improvements = result['improvements'] is List
+        ? (result['improvements'] as List).take(2).map((item) => item.toString()).toList()
+        : <String>[];
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(19),
+        border: Border.all(color: IeltsPalette.line),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(color: const Color(0xFFECEBFA), borderRadius: BorderRadius.circular(13)),
+            child: const Icon(Icons.workspace_premium_rounded, color: Color(0xFF7770B9)),
+          ),
+          const SizedBox(width: 11),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('AI estimated band', style: TextStyle(color: IeltsPalette.muted, fontSize: 10, fontWeight: FontWeight.w700)),
+            Text(band, style: const TextStyle(color: IeltsPalette.ink, fontSize: 21, fontWeight: FontWeight.w900)),
+          ])),
+          PremiumChip(dateLabel),
+        ]),
+        if (improvements.isNotEmpty) ...[
+          const Divider(height: 22),
+          const Text('FOCUS NEXT', style: TextStyle(color: IeltsPalette.gold, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
+          const SizedBox(height: 7),
+          ...improvements.map((item) => Padding(
+            padding: const EdgeInsets.only(bottom: 5),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Icon(Icons.arrow_right_rounded, size: 17, color: IeltsPalette.emerald),
+              Expanded(child: Text(item, style: const TextStyle(color: IeltsPalette.inkSoft, fontSize: 10, height: 1.4))),
+            ]),
+          )),
+        ],
+        const SizedBox(height: 7),
+        const Text('AI estimate only · Not an official IELTS result', style: TextStyle(color: IeltsPalette.muted, fontSize: 9)),
+      ]),
+    );
+  }
 
   Widget _weeklyActivity() {
     final today = DateTime.now();
