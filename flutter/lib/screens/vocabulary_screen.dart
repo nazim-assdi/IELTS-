@@ -73,6 +73,7 @@ class _VocabularyScreenState extends State<VocabularyScreen> {
         searching = false;
       });
       await widget.prefs.setStringList('dictionary_recent', updatedRecent);
+      if (!mounted || requestId != lookupGeneration) return;
 
       final firstDefinition = found.definitions.first.definition;
       if (firstDefinition.isNotEmpty) {
@@ -417,18 +418,25 @@ class _VocabularyScreenState extends State<VocabularyScreen> {
     ]),
   );
 
-  Widget _wordChips(List<String> words) => Wrap(
-    spacing: 6,
-    runSpacing: 6,
-    children: words.take(8).map((word) => ActionChip(
-      label: Text(word),
-      onPressed: () => _lookup(word),
-      backgroundColor: IeltsPalette.mint,
-      side: BorderSide.none,
-      visualDensity: VisualDensity.compact,
-      labelStyle: const TextStyle(color: IeltsPalette.emeraldDeep, fontSize: 10, fontWeight: FontWeight.w700),
-    )).toList(),
-  );
+  Widget _wordChips(List<String> words) {
+    final searchable = words
+        .where((word) => RegExp(r"^[a-z][a-z'-]{0,49}$", caseSensitive: false).hasMatch(word))
+        .take(8)
+        .toList();
+    if (searchable.isEmpty) return const SizedBox.shrink();
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: searchable.map((word) => ActionChip(
+        label: Text(word),
+        onPressed: () => _lookup(word),
+        backgroundColor: IeltsPalette.mint,
+        side: BorderSide.none,
+        visualDensity: VisualDensity.compact,
+        labelStyle: const TextStyle(color: IeltsPalette.emeraldDeep, fontSize: 10, fontWeight: FontWeight.w700),
+      )).toList(),
+    );
+  }
 
   Widget _errorCard(String message) => Container(
     padding: const EdgeInsets.all(15),
