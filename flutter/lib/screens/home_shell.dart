@@ -34,7 +34,7 @@ class _HomeShellState extends State<HomeShell> {
   int tab = 0;
   int section = 1;
 
-  final titles = const ['Your learning path', 'Speaking studio', 'Cue card library', 'Dictionary', 'AI translator', 'Mock Test Centre'];
+  final titles = const ['Your learning path', 'Speaking studio', 'Cue card library', 'Dictionary', 'AI translator'];
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +44,6 @@ class _HomeShellState extends State<HomeShell> {
       CueCardsScreen(prefs: widget.prefs),
       VocabularyScreen(prefs: widget.prefs),
       TranslatorScreen(prefs: widget.prefs),
-      MockTestScreen(prefs: widget.prefs, onOpenSpeaking: () => setState(() => tab = 1)),
     ];
 
     return Scaffold(
@@ -88,7 +87,6 @@ class _HomeShellState extends State<HomeShell> {
           NavigationDestination(icon: Icon(Icons.style_outlined), selectedIcon: Icon(Icons.style_rounded), label: 'Cue Cards'),
           NavigationDestination(icon: Icon(Icons.auto_stories_outlined), selectedIcon: Icon(Icons.auto_stories_rounded), label: 'Dictionary'),
           NavigationDestination(icon: Icon(Icons.translate_rounded), selectedIcon: Icon(Icons.translate_rounded), label: 'Translate'),
-          NavigationDestination(icon: Icon(Icons.fact_check_outlined), selectedIcon: Icon(Icons.fact_check_rounded), label: 'Mock Test'),
         ],
       ),
     );
@@ -249,7 +247,7 @@ class _HomeShellState extends State<HomeShell> {
             title: 'IELTS Mock Test Centre',
             subtitle: 'Four-skill diagnostic, saved results and adaptive next steps',
             accent: const Color(0xFF0B806A),
-            onTap: () => setState(() => tab = 5),
+            onTap: _openMockTest,
           ),
           const SizedBox(height: 9),
           PremiumFeatureTile(
@@ -478,6 +476,19 @@ class _HomeShellState extends State<HomeShell> {
         ),
       ),
     );
+  }
+
+  Future<void> _openMockTest() async {
+    await Navigator.push(context, MaterialPageRoute(
+      builder: (_) => MockTestScreen(
+        prefs: widget.prefs,
+        onOpenSpeaking: () {
+          Navigator.pop(context);
+          if (mounted) setState(() => tab = 1);
+        },
+      ),
+    ));
+    if (mounted) setState(() {});
   }
 
   Future<void> _openMistakeReview() async {
