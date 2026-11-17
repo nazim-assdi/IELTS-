@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/gemini_api.dart';
 
@@ -33,6 +34,9 @@ class _MockTestScreenState extends State<MockTestScreen> {
   ];
 
   final Map<int, int> _answers = {};
+  final FlutterTts _listeningTts = FlutterTts();
+  bool _audioPlaying = false;
+  bool _listeningTranscriptVisible = false;
   final _writingTask1 = TextEditingController();
   final _writingTask2 = TextEditingController();
   final _speaking = TextEditingController();
@@ -47,6 +51,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _listeningTts.stop();
     _writingTask1.dispose();
     _writingTask2.dispose();
     _speaking.dispose();
@@ -59,6 +64,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
       _finished = false;
       _secondsLeft = 35 * 60;
       _answers.clear();
+      _listeningTranscriptVisible = false;
       _section = 0;
       _writingTask1.clear();
       _writingTask2.clear();
@@ -188,7 +194,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
         ),
       ),
       Expanded(child: IndexedStack(index: _section, children: [
-        _objectiveSection('Listening', 'Listen to the short practice briefing, then answer each question.', _listening, 0, 'Practice transcript', 'Welcome to the Riverside Learning Centre. The library closes at seven on weekdays. New members should bring proof of address. Student membership is fifteen pounds per year. Please note that the photography workshop will take place in the media centre.'),
+        _objectiveSection('Listening', 'Listen to the short practice briefing, then answer each question.', _listening, 0, 'Practice transcript', 'Welcome to the Riverside Learning Centre. The library closes at seven on weekdays. New members should bring proof of address. Student membership is fifteen pounds per year. Please note that the photography workshop will take place in the media centre.', isListening: true),
         _objectiveSection('Reading', 'Read the passage carefully and choose the best answer.', _reading, 4, 'Urban spaces for healthier cities', 'Well-designed cities combine reliable public transport, accessible green spaces and neighbourhood services. Urban trees provide shade and help reduce local temperatures. Mixed-use neighbourhoods place homes, shops and services within convenient reach, reducing the need for some car journeys. Researchers argue that successful urban planning must balance environmental goals with the needs of local communities.'),
         _writingSection(),
         _speakingSection(),
@@ -287,16 +293,42 @@ class _MockTestScreenState extends State<MockTestScreen> {
     ]),
   );
 
-  Widget _objectiveSection(String title, String subtitle, List<_Question> questions, int offset, String passageTitle, String passage) {
+  Future<void> _playListeningAudio(String script) async {
+    if (_audioPlaying) return;
+    setState(() => _audioPlaying = true);
+    try {
+      await _listeningTts.setLanguage('en-GB');
+      await _listeningTts.setSpeechRate(0.92);
+      await _listeningTts.setPitch(1.0);
+      await _listeningTts.awaitSpeakCompletion(true);
+      await _listeningTts.speak(script);
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Listening audio could not play: $error')));
+    } finally {
+      if (mounted) setState(() => _audioPlaying = false);
+    }
+  }
+
+  Widget _objectiveSection(String title, String subtitle, List<_Question> questions, int offset, String passageTitle, String passage, {bool isListening = false}) {
     return ListView(padding: const EdgeInsets.all(16), children: [
       Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _ink)),
       const SizedBox(height: 4),
       Text(subtitle, style: const TextStyle(color: _muted, fontSize: 12)),
       const SizedBox(height: 14),
       Container(padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: const Color(0xFFEAF4F0), borderRadius: BorderRadius.circular(17)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(passageTitle.toUpperCase(), style: const TextStyle(color: _green, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
+        Text(isListening ? 'LISTENING RECORDING' : passageTitle.toUpperCase(), style: const TextStyle(color: _green, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
         const SizedBox(height: 7),
-        Text(passage, style: const TextStyle(color: _ink, height: 1.55, fontSize: 13)),
+        if (isListening) ...[
+          const Text('Play the spoken briefing. Try to answer from what you hear before revealing the transcript.', style: TextStyle(color: _ink, height: 1.5, fontSize: 13)),
+          const SizedBox(height: 10),
+          FilledButton.icon(
+            onPressed: _audioPlaying ? null : () => _playListeningAudio(passage),
+            icon: Icon(_audioPlaying ? Icons.graphic_eq_rounded : Icons.play_arrow_rounded),
+            label: Text(_audioPlaying ? 'Playing recording…' : 'Play recording'),
+            style: FilledButton.styleFrom(backgroundColor: _green),
+          ),
+        ] else
+          Text(passage, style: const TextStyle(color: _ink, height: 1.55, fontSize: 13)),
       ])),
       const SizedBox(height: 14),
       ...List.generate(questions.length, (i) {
@@ -323,6 +355,20 @@ class _MockTestScreenState extends State<MockTestScreen> {
           ]),
         );
       }),
+      if (isListening) ...[
+        const SizedBox(height: 4),
+        TextButton.icon(
+          onPressed: () => setState(() => _listeningTranscriptVisible = !_listeningTranscriptVisible),
+          icon: Icon(_listeningTranscriptVisible ? Icons.visibility_off_rounded : Icons.article_outlined),
+          label: Text(_listeningTranscriptVisible ? 'Hide transcript' : 'Reveal transcript after answering'),
+        ),
+        if (_listeningTranscriptVisible)
+          Container(
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(color: const Color(0xFFF3F5F4), borderRadius: BorderRadius.circular(14)),
+            child: Text(passage, style: const TextStyle(color: _muted, fontSize: 12, height: 1.5)),
+          ),
+      ],
     ]);
   }
 
