@@ -182,7 +182,7 @@ class _HomeShellState extends State<HomeShell> {
                   child: const Icon(Icons.flag_rounded, color: IeltsPalette.emerald),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('$dailyGoal focused lessons', style: TextStyle(fontWeight: FontWeight.w900, color: IeltsPalette.ink)),
                   SizedBox(height: 3),
                   Text('Build a study habit that lasts', style: TextStyle(fontSize: 11, color: IeltsPalette.muted)),
