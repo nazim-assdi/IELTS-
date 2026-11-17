@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/gemini_api.dart';
 
 class MockTestScreen extends StatefulWidget {
   const MockTestScreen({super.key, required this.prefs});
@@ -40,6 +41,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
   int _section = 0;
   bool _started = false;
   bool _finished = false;
+  bool _finishing = false;
   Map<String, dynamic>? _result;
 
   @override
@@ -86,8 +88,9 @@ class _MockTestScreenState extends State<MockTestScreen> {
   int get _readingScore => _correct(_reading, 4);
 
   Future<void> _finish() async {
-    if (_finished) return;
+    if (_finished || _finishing) return;
     _timer?.cancel();
+    setState(() => _finishing = true);
     final listening = _listeningScore / _listening.length * 100;
     final reading = _readingScore / _reading.length * 100;
     final writingWords = _wordCount(_writingTask1.text) + _wordCount(_writingTask2.text);
@@ -113,6 +116,27 @@ class _MockTestScreenState extends State<MockTestScreen> {
       'weakestSkill': ordered.first.key,
       'nextAction': _recommendation(ordered.first.key),
     };
+    try {
+      final aiAnalysis = await GeminiApi(baseUrl: defaultIeltsApiUrl).analyzeMockTest(
+        metrics: {
+          'listeningCorrect': _listeningScore,
+          'listeningTotal': _listening.length,
+          'readingCorrect': _readingScore,
+          'readingTotal': _reading.length,
+          'writingWords': writingWords,
+          'speakingWords': speakingWords,
+          'sections': sections,
+        },
+        writingTask1: _writingTask1.text,
+        writingTask2: _writingTask2.text,
+        speakingResponse: _speaking.text,
+      );
+      record['aiAnalysis'] = aiAnalysis;
+      record['analysisSource'] = 'gemini';
+    } catch (error) {
+      record['analysisSource'] = 'local';
+      record['analysisError'] = error.toString();
+    }
     final history = widget.prefs.getStringList('mockTestHistory') ?? <String>[];
     history.insert(0, jsonEncode(record));
     await widget.prefs.setStringList('mockTestHistory', history.take(20).toList());
@@ -120,6 +144,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
     if (!mounted) return;
     setState(() {
       _finished = true;
+      _finishing = false;
       _result = record;
     });
   }
@@ -133,7 +158,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
     }
   }
 
-  int _wordCount(String value) => RegExp(r"\\b[\\w’'-]+\\b").allMatches(value).length;
+  int _wordCount(String value) => RegExp(r"\b[\w’'-]+\b").allMatches(value).length;
 
   String get _timeLabel {
     final minutes = (_secondsLeft ~/ 60).toString().padLeft(2, '0');
@@ -329,11 +354,42 @@ class _MockTestScreenState extends State<MockTestScreen> {
     child: Padding(padding: const EdgeInsets.fromLTRB(16, 7, 16, 12), child: Row(children: [
       OutlinedButton(onPressed: _section == 0 ? null : () => setState(() => _section--), child: const Text('Previous')),
       const SizedBox(width: 8),
-      Expanded(child: Text('${_answers.length}/8 MCQs answered', textAlign: TextAlign.center, style: const TextStyle(color: _muted, fontSize: 10, fontWeight: FontWeight.w700))),
+      Expanded(child: Text(_finishing ? 'Generating your AI weakness report…' : '${_answers.length}/8 MCQs answered', textAlign: TextAlign.center, style: const TextStyle(color: _muted, fontSize: 10, fontWeight: FontWeight.w700))),
       const SizedBox(width: 8),
-      FilledButton(onPressed: _section == 3 ? _finish : () => setState(() => _section++), style: FilledButton.styleFrom(backgroundColor: _green), child: Text(_section == 3 ? 'Finish test' : 'Next')),
+      FilledButton(onPressed: _finishing ? null : (_section == 3 ? _finish : () => setState(() => _section++)), style: FilledButton.styleFrom(backgroundColor: _green), child: Text(_finishing ? 'Analysing…' : (_section == 3 ? 'Finish test' : 'Next'))),
     ])),
   );
+
+  Widget _aiReport(Map<String, dynamic> report) {
+    final skills = report['skillAnalysis'] is List ? report['skillAnalysis'] as List : const [];
+    final plan = report['sevenDayPlan'] is List ? report['sevenDayPlan'] as List : const [];
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: const Color(0xFFEAF4F0), borderRadius: BorderRadius.circular(18)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Row(children: [Icon(Icons.auto_awesome, color: _green, size: 17), SizedBox(width: 7), Text('AI WEAKNESS ANALYSIS', style: TextStyle(color: _green, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1))]),
+        const SizedBox(height: 9),
+        Text(report['summary']?.toString() ?? 'Your personalised practice report is ready.', style: const TextStyle(color: _ink, fontSize: 13, height: 1.5)),
+        const SizedBox(height: 12),
+        ...skills.whereType<Map>().map((raw) {
+          final item = Map<String, dynamic>.from(raw);
+          final steps = item['nextSteps'] is List ? (item['nextSteps'] as List).join(' • ') : '';
+          return Padding(padding: const EdgeInsets.only(bottom: 12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [Expanded(child: Text(item['skill']?.toString() ?? 'Skill', style: const TextStyle(color: _ink, fontWeight: FontWeight.w900))), Text(item['level']?.toString() ?? '', style: const TextStyle(color: _green, fontSize: 10, fontWeight: FontWeight.w800))]),
+            const SizedBox(height: 3),
+            Text(item['evidence']?.toString() ?? '', style: const TextStyle(color: _muted, fontSize: 11, height: 1.4)),
+            if (steps.isNotEmpty) Text('Next: $steps', style: const TextStyle(color: _ink, fontSize: 11, height: 1.4)),
+          ]));
+        }),
+        if (plan.isNotEmpty) ...[
+          const Divider(color: Color(0xFFD2E4DC)),
+          const Text('YOUR 7-DAY ADAPTIVE PLAN', style: TextStyle(color: _green, fontWeight: FontWeight.w900, fontSize: 9, letterSpacing: 1)),
+          const SizedBox(height: 7),
+          ...plan.map((item) => Padding(padding: const EdgeInsets.only(bottom: 5), child: Text('• ${item.toString()}', style: const TextStyle(color: _ink, fontSize: 11, height: 1.4)))),
+        ],
+      ]),
+    );
+  }
 
   Widget _results() {
     final data = _result!;
@@ -358,13 +414,18 @@ class _MockTestScreenState extends State<MockTestScreen> {
           ClipRRect(borderRadius: BorderRadius.circular(20), child: LinearProgressIndicator(value: value / 100, minHeight: 8, backgroundColor: const Color(0xFFE9EFEC), color: _green)),
         ]));
       }),
-      Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFFEAF4F0), borderRadius: BorderRadius.circular(18)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('YOUR ADAPTIVE NEXT STEP', style: TextStyle(color: _green, fontWeight: FontWeight.w900, fontSize: 9, letterSpacing: 1)),
-        const SizedBox(height: 7),
-        Text('Focus on ${data['weakestSkill']}', style: const TextStyle(color: _ink, fontWeight: FontWeight.w900, fontSize: 18)),
-        const SizedBox(height: 5),
-        Text(data['nextAction'].toString(), style: const TextStyle(color: _ink, fontSize: 12, height: 1.45)),
-      ])),
+      if (data['aiAnalysis'] is Map) ...[
+        _aiReport(Map<String, dynamic>.from(data['aiAnalysis'] as Map)),
+      ] else
+        Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFFEAF4F0), borderRadius: BorderRadius.circular(18)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('LOCAL ADAPTIVE NEXT STEP', style: TextStyle(color: _green, fontWeight: FontWeight.w900, fontSize: 9, letterSpacing: 1)),
+          const SizedBox(height: 7),
+          Text('Focus on ${data['weakestSkill']}', style: const TextStyle(color: _ink, fontWeight: FontWeight.w900, fontSize: 18)),
+          const SizedBox(height: 5),
+          Text(data['nextAction'].toString(), style: const TextStyle(color: _ink, fontSize: 12, height: 1.45)),
+          const SizedBox(height: 5),
+          const Text('AI analysis was unavailable, so this recommendation uses your local diagnostic results.', style: TextStyle(color: _muted, fontSize: 10)),
+        ]),),
       const SizedBox(height: 12),
       Text('Listening: ${data['listeningCorrect']}/4 correct • Reading: ${data['readingCorrect']}/4 correct', style: const TextStyle(color: _muted, fontSize: 11)),
       Text('Writing: ${data['writingWords']} words • Speaking practice: ${data['speakingWords']} words', style: const TextStyle(color: _muted, fontSize: 11)),
