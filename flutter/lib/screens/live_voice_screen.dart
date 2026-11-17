@@ -3,14 +3,18 @@ import 'dart:convert';
 import 'package:audio_stream_player/audio_stream_player.dart';
 import 'package:flutter/material.dart';
 import 'package:record/record.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/gemini_api.dart';
+import '../services/progress_store.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../theme/ielts_theme.dart';
 import '../widgets/premium_ui.dart';
 
 class LiveVoiceScreen extends StatefulWidget {
-  const LiveVoiceScreen({super.key, required this.baseUrl, required this.initialPart});
+  const LiveVoiceScreen({super.key, required this.baseUrl, required this.initialPart, required this.prefs});
   final String baseUrl;
   final String initialPart;
+  final SharedPreferences prefs;
 
   @override
   State<LiveVoiceScreen> createState() => _LiveVoiceScreenState();
@@ -28,7 +32,7 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
   final List<Map<String, String>> transcript = [];
   String part = 'Part 1';
   String status = 'Not connected';
-  bool connecting = false, connected = false, microphoneOn = false, examinerSpeaking = false;
+  bool connecting = false, connected = false, microphoneOn = false, examinerSpeaking = false, evaluating = false;
 
   @override
   void initState() {
@@ -40,6 +44,70 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
+
+  Future<void> _evaluateTranscript() async {
+    if (evaluating) return;
+    final sample = transcript
+        .where((item) => item['speaker'] == 'You')
+        .map((item) => item['text'] ?? '')
+        .join(' ')
+        .trim();
+    if (sample.length < 20) {
+      _notice('Complete a longer spoken answer before requesting feedback.');
+      return;
+    }
+    setState(() => evaluating = true);
+    try {
+      final result = await GeminiApi(baseUrl: widget.baseUrl).evaluate(
+        speech: sample.length > 7000 ? sample.substring(sample.length - 7000) : sample,
+        part: part,
+      );
+      await ProgressStore(widget.prefs).recordSpeakingEvaluation(result);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text('AI speaking estimate: ${result['overallBand'] ?? '—'}'),
+          content: SingleChildScrollView(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(result['assessmentType']?.toString() ?? 'Practice estimate only; not an official IELTS result.', style: const TextStyle(color: IeltsPalette.muted, fontSize: 11, height: 1.4)),
+              const SizedBox(height: 12),
+              _evaluationLine('Fluency & coherence', result['fluencyCoherence']),
+              _evaluationLine('Lexical resource', result['lexicalResource']),
+              _evaluationLine('Grammar', result['grammaticalRangeAccuracy']),
+              _evaluationLine('Pronunciation', result['pronunciation']),
+              if (result['strengths'] is List) ...[
+                const SizedBox(height: 7),
+                const Text('Strengths', style: TextStyle(fontWeight: FontWeight.w900)),
+                ...((result['strengths'] as List).map((item) => Text('• ${item.toString()}', style: const TextStyle(fontSize: 12)))),
+              ],
+              if (result['improvements'] is List) ...[
+                const SizedBox(height: 7),
+                const Text('Next improvements', style: TextStyle(fontWeight: FontWeight.w900)),
+                ...((result['improvements'] as List).map((item) => Text('• ${item.toString()}', style: const TextStyle(fontSize: 12)))),
+              ],
+            ],
+          )),
+          actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Close'))],
+        ),
+      );
+    } catch (error) {
+      if (mounted) _notice('Could not evaluate this conversation: ${error.toString().replaceFirst('Exception: ', '')}');
+    } finally {
+      if (mounted) setState(() => evaluating = false);
+    }
+  }
+
+  Widget _evaluationLine(String title, dynamic value) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(title, style: const TextStyle(color: IeltsPalette.emerald, fontWeight: FontWeight.w900, fontSize: 11)),
+      const SizedBox(height: 2),
+      Text(value?.toString() ?? 'Not assessed', style: const TextStyle(fontSize: 12, height: 1.4)),
+    ]),
+  );
 
   Uri _liveUri() {
     final base = Uri.parse(widget.baseUrl.trim());
@@ -439,17 +507,31 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
                   label: const Text('End session'),
                 )),
               ]),
-            ] else
+            ] else ...[
+              if (transcript.any((item) => item['speaker'] == 'You')) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: evaluating ? null : _evaluateTranscript,
+                    icon: evaluating
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.analytics_rounded),
+                    label: Text(evaluating ? 'Analysing your answers…' : 'Evaluate this conversation'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
               SizedBox(
                 width: double.infinity,
-                child: FilledButton.icon(
+                child: OutlinedButton.icon(
                   onPressed: connecting ? null : connect,
                   icon: connecting
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.mic_rounded),
                   label: Text(connecting ? 'Connecting securely…' : 'Start live conversation'),
                 ),
               ),
+            ],
             const SizedBox(height: 7),
             const Text('Use a headset for clearer audio and fewer microphone echoes.', style: TextStyle(fontSize: 9, color: IeltsPalette.muted)),
           ]),
