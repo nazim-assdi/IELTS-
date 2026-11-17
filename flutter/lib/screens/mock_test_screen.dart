@@ -45,6 +45,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
   int _section = 0;
   bool _started = false;
   bool _finished = false;
+  bool _academic = true;
   bool _finishing = false;
   Map<String, dynamic>? _result;
 
@@ -246,6 +247,18 @@ class _MockTestScreenState extends State<MockTestScreen> {
         ]),
       ),
       const SizedBox(height: 18),
+      const Text('CHOOSE YOUR IELTS TEST', style: TextStyle(color: _green, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.2)),
+      const SizedBox(height: 8),
+      SegmentedButton<bool>(
+        segments: const [
+          ButtonSegment(value: true, label: Text('Academic')),
+          ButtonSegment(value: false, label: Text('General Training')),
+        ],
+        selected: {_academic},
+        onSelectionChanged: (value) => setState(() => _academic = value.first),
+        showSelectedIcon: false,
+      ),
+      const SizedBox(height: 17),
       const Text('TEST FORMAT', style: TextStyle(color: _green, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.2)),
       const SizedBox(height: 10),
       _infoTile(Icons.headphones_rounded, 'Listening', '4 practice MCQs • listen to the audio prompt before answering'),
@@ -377,14 +390,49 @@ class _MockTestScreenState extends State<MockTestScreen> {
     const SizedBox(height: 5),
     const Text('Write in your own words. Word counts help you check completion; they are not an automated band score.', style: TextStyle(color: _muted, fontSize: 12, height: 1.4)),
     const SizedBox(height: 14),
-    _writingPrompt('TASK 1 • 150 WORDS', 'The table below compares the percentage of commuters using buses, trains and bicycles in three cities in 2010 and 2020. Summarise the main features and make relevant comparisons.'),
+    _writingPrompt(_academic ? 'ACADEMIC TASK 1 • AT LEAST 150 WORDS' : 'GENERAL TRAINING TASK 1 • AT LEAST 150 WORDS',
+      _academic
+        ? 'The table compares the percentage of commuters using three forms of transport in City A between 2010 and 2020. Summarise the main features and make relevant comparisons.'
+        : 'You recently moved into a new neighbourhood and would like to join a local sports centre. Write a letter to the manager. In your letter, explain why you are writing, describe the activities you are interested in and ask about membership arrangements.'),
+    if (_academic) _commuterTable(),
     _essayField(_writingTask1, 'Write your Task 1 response…', 6),
     Align(alignment: Alignment.centerRight, child: Text('${_wordCount(_writingTask1.text)} words', style: const TextStyle(color: _green, fontWeight: FontWeight.w800, fontSize: 11))),
     const SizedBox(height: 18),
-    _writingPrompt('TASK 2 • 250 WORDS', 'Some people believe that governments should invest more in public transport than in building new roads. To what extent do you agree or disagree? Give reasons and examples.'),
+    _writingPrompt('TASK 2 • AT LEAST 250 WORDS', 'Some people believe that governments should invest more in public transport than in building new roads. To what extent do you agree or disagree? Give reasons and examples.'),
     _essayField(_writingTask2, 'Write your Task 2 essay…', 8),
     Align(alignment: Alignment.centerRight, child: Text('${_wordCount(_writingTask2.text)} words', style: const TextStyle(color: _green, fontWeight: FontWeight.w800, fontSize: 11))),
   ]);
+
+  Widget _commuterTable() => Container(
+    margin: const EdgeInsets.only(top: 9),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(15), border: Border.all(color: const Color(0xFFE5ECE9))),
+    child: Table(
+      border: TableBorder.all(color: const Color(0xFFE5ECE9), borderRadius: BorderRadius.circular(8)),
+      children: const [
+        TableRow(children: [
+          Padding(padding: EdgeInsets.all(8), child: Text('Transport', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11))),
+          Padding(padding: EdgeInsets.all(8), child: Text('2010', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11))),
+          Padding(padding: EdgeInsets.all(8), child: Text('2020', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11))),
+        ]),
+        TableRow(children: [
+          Padding(padding: EdgeInsets.all(8), child: Text('Bus', style: TextStyle(fontSize: 11))),
+          Padding(padding: EdgeInsets.all(8), child: Text('54%', style: TextStyle(fontSize: 11))),
+          Padding(padding: EdgeInsets.all(8), child: Text('38%', style: TextStyle(fontSize: 11))),
+        ]),
+        TableRow(children: [
+          Padding(padding: EdgeInsets.all(8), child: Text('Train', style: TextStyle(fontSize: 11))),
+          Padding(padding: EdgeInsets.all(8), child: Text('28%', style: TextStyle(fontSize: 11))),
+          Padding(padding: EdgeInsets.all(8), child: Text('42%', style: TextStyle(fontSize: 11))),
+        ]),
+        TableRow(children: [
+          Padding(padding: EdgeInsets.all(8), child: Text('Bicycle', style: TextStyle(fontSize: 11))),
+          Padding(padding: EdgeInsets.all(8), child: Text('18%', style: TextStyle(fontSize: 11))),
+          Padding(padding: EdgeInsets.all(8), child: Text('20%', style: TextStyle(fontSize: 11))),
+        ]),
+      ],
+    ),
+  );
 
   Widget _writingPrompt(String label, String prompt) => Container(
     padding: const EdgeInsets.all(14),
