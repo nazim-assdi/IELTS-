@@ -36,7 +36,7 @@ class ProgressStore {
   int get todayPracticeMinutes =>
       _isToday ? (prefs.getInt('todayPracticeMinutes') ?? 0) : 0;
 
-  int get dailyLessonGoal => (prefs.getInt('dailyLessonGoal') ?? 5).clamp(1, 10);
+  int get dailyLessonGoal => (prefs.getInt('dailyLessonGoal') ?? 5).clamp(1, 10).toInt();
   int get dailyStudyMinutesGoal {
     final value = prefs.getInt('dailyStudyMinutesGoal') ?? 30;
     return const [20, 30, 40].contains(value) ? value : 30;
@@ -58,7 +58,7 @@ class ProgressStore {
       todayPracticeMinutes > todayPlannedMinutes ? todayPracticeMinutes : todayPlannedMinutes;
 
   Future<void> setDailyLessonGoal(int value) =>
-      prefs.setInt('dailyLessonGoal', value.clamp(1, 10));
+      prefs.setInt('dailyLessonGoal', value.clamp(1, 10).toInt());
 
   Future<void> setDailyStudyMinutesGoal(int value) async {
     if (!const [20, 30, 40].contains(value)) return;
