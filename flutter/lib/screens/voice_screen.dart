@@ -4,6 +4,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../services/gemini_api.dart';
+import '../services/progress_store.dart';
 import '../theme/ielts_theme.dart';
 import 'live_voice_screen.dart';
 
@@ -191,6 +192,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
     setState(() => loading = true);
     try {
       final result = await api.evaluate(speech: sample, part: part);
+      await ProgressStore(widget.prefs).recordSpeakingEvaluation(result);
       if (!mounted) return;
       await showDialog<void>(
         context: context,
