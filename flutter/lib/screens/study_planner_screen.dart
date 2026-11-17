@@ -122,7 +122,12 @@ class _StudyPlannerScreenState extends State<StudyPlannerScreen> {
           if (store.latestSpeakingEvaluation != null) ...[
             const PremiumSectionHeading('Latest speaking assessment'),
             _latestAssessment(store.latestSpeakingEvaluation!),
-            const SizedBox(height: 18),
+            const SizedBox(height: 17),
+            if (store.speakingEvaluationHistory.length > 1) ...[
+              const PremiumSectionHeading('Band progress history'),
+              _assessmentHistory(),
+              const SizedBox(height: 3),
+            ],
           ],
           const PremiumSectionHeading('Your last 7 days'),
           _weeklyActivity(),
@@ -295,6 +300,57 @@ class _StudyPlannerScreenState extends State<StudyPlannerScreen> {
         const Text('AI estimate only · Not an official IELTS result', style: TextStyle(color: IeltsPalette.muted, fontSize: 9)),
       ]),
     );
+  }
+
+  Widget _assessmentHistory() {
+    final history = store.speakingEvaluationHistory.take(5).toList();
+    final latestBand = (history.first['overallBand'] as num?)?.toDouble();
+    final oldestBand = (history.last['overallBand'] as num?)?.toDouble();
+    final change = latestBand == null || oldestBand == null ? null : latestBand - oldestBand;
+    final trendColor = change == null
+        ? IeltsPalette.muted
+        : change > 0 ? IeltsPalette.emerald : change < 0 ? const Color(0xFFB95B43) : IeltsPalette.muted;
+    final trendText = change == null
+        ? 'Recent results'
+        : change > 0 ? '+${change.toStringAsFixed(1)} band' : change < 0 ? change.toStringAsFixed(1) : 'No change';
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const Expanded(child: Text('Most recent assessments first', style: TextStyle(color: IeltsPalette.muted, fontSize: 10))),
+        PremiumChip(trendText, icon: change != null && change > 0 ? Icons.trending_up_rounded : Icons.insights_rounded, color: trendColor),
+      ]),
+      const SizedBox(height: 10),
+      SizedBox(
+        height: 102,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: history.map((item) {
+            final band = item['overallBand']?.toString() ?? '—';
+            final parsed = DateTime.tryParse(item['date']?.toString() ?? '');
+            final date = parsed == null
+                ? 'Recent'
+                : '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}';
+            return Container(
+              width: 106,
+              margin: const EdgeInsets.only(right: 9),
+              padding: const EdgeInsets.all(13),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(17),
+                border: Border.all(color: IeltsPalette.line),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('IELTS BAND', style: TextStyle(color: IeltsPalette.muted, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: .8)),
+                const Spacer(),
+                Text(band, style: const TextStyle(color: IeltsPalette.ink, fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: -.7)),
+                const Spacer(),
+                Text(date, style: const TextStyle(color: IeltsPalette.emerald, fontSize: 9, fontWeight: FontWeight.w800)),
+              ]),
+            );
+          }).toList(),
+        ),
+      ),
+    ]);
   }
 
   Widget _weeklyActivity() {
