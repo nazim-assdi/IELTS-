@@ -265,14 +265,29 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
     });
   }
 
+  Future<void> _releaseResources() async {
+    try { await audioSubscription?.cancel(); } catch (_) {}
+    audioSubscription = null;
+    try { await recorder.stop(); } catch (_) {}
+    try { await socketSubscription?.cancel(); } catch (_) {}
+    socketSubscription = null;
+    try { await channel?.sink.close(); } catch (_) {}
+    channel = null;
+
+    final pendingAudio = audioQueue;
+    audioQueue = Future<void>.value();
+    try { await player?.stop(); } catch (_) {}
+    try { await pendingAudio.timeout(const Duration(seconds: 2)); } catch (_) {}
+    try { await player?.dispose(); } catch (_) {}
+    player = null;
+    playerStarted = false;
+    try { await recorder.dispose(); } catch (_) {}
+  }
+
   @override
   void dispose() {
     playbackGeneration++;
-    unawaited(stopMicrophone());
-    unawaited(socketSubscription?.cancel() ?? Future<void>.value());
-    unawaited(channel?.sink.close() ?? Future<void>.value());
-    unawaited(player?.dispose() ?? Future<void>.value());
-    unawaited(recorder.dispose());
+    unawaited(_releaseResources());
     super.dispose();
   }
 
