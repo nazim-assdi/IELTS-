@@ -54,6 +54,10 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
     if (connecting || connected) return;
     setState(() { connecting = true; status = 'Connecting to Gemini Live…'; transcript.clear(); });
     try {
+      // Prepare the output player directly from the user's Start tap. The server sends
+      // its greeting as soon as the Live session is ready, so waiting until the first
+      // audio packet can drop the opening words on slower devices.
+      await _prepareAudioPlayer();
       final ws = WebSocketChannel.connect(_liveUri());
       channel = ws;
       socketSubscription = ws.stream.listen(
@@ -81,18 +85,44 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
     }
   }
 
+  Future<void> _prepareAudioPlayer() async {
+    player ??= await AudioStreamPlayer.create(
+      sampleRate: 24000,
+      channels: 1,
+      format: PcmFormat.s16le,
+    );
+    if (!playerStarted) {
+      await player!.play();
+      playerStarted = true;
+    }
+  }
+
+  Future<void> _finishAudioTurn() async {
+    final generation = playbackGeneration;
+    audioQueue = audioQueue.then((_) async {
+      if (generation != playbackGeneration) return;
+      final activePlayer = player;
+      if (activePlayer == null || !playerStarted) return;
+      try {
+        await activePlayer.endOfStream();
+      } finally {
+        if (generation == playbackGeneration) playerStarted = false;
+      }
+    }).catchError((_) {
+      if (generation == playbackGeneration) playerStarted = false;
+    });
+    await audioQueue;
+    if (mounted && generation == playbackGeneration) {
+      setState(() => examinerSpeaking = false);
+    }
+  }
+
   Future<void> _handleServerMessage(dynamic event) async {
     try {
       final payload = jsonDecode(event.toString()) as Map<String, dynamic>;
       final type = payload['type']?.toString();
       if (type == 'ready') {
-        player ??= await AudioStreamPlayer.create(
-          sampleRate: 24000,
-          channels: 1,
-          format: PcmFormat.s16le,
-        );
-        await player!.play();
-        playerStarted = true;
+        await _prepareAudioPlayer();
         if (!mounted) return;
         setState(() {
           connecting = false;
@@ -106,15 +136,12 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
         final generation = playbackGeneration;
         audioQueue = audioQueue.then((_) async {
           if (generation != playbackGeneration) return;
-          final activePlayer = player;
-          if (activePlayer == null) return;
-          // Barge-in calls stop() which returns the player to idle. Restart it before
-          // feeding the examiner's next response, otherwise later turns are silent.
-          if (!playerStarted) {
-            await activePlayer.play();
-            playerStarted = true;
-          }
           if (generation != playbackGeneration) return;
+          await _prepareAudioPlayer();
+          final activePlayer = player;
+          if (activePlayer == null || generation != playbackGeneration) return;
+          // Each completed utterance drains the player back to idle. A following
+          // response must start playback again before feeding its first PCM chunk.
           await activePlayer.feed(bytes);
         }).catchError((_) {});
         if (mounted) setState(() => examinerSpeaking = true);
@@ -123,7 +150,9 @@ class _LiveVoiceScreenState extends State<LiveVoiceScreen> {
       } else if (type == 'output_transcript') {
         _addTranscript('Examiner', payload['text']?.toString() ?? '');
       } else if (type == 'turn_complete') {
-        if (mounted) setState(() => examinerSpeaking = false);
+        // The player needs an explicit end marker to drain this utterance and return
+        // to idle. Without it, subsequent examiner turns can remain silent.
+        await _finishAudioTurn();
       } else if (type == 'interrupted') {
         // Invalidate queued chunks from the interrupted assistant turn and stop playback
         // in queue order. The next audio turn will automatically restart the player.
