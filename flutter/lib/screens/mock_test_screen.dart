@@ -7,8 +7,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/gemini_api.dart';
 
 class MockTestScreen extends StatefulWidget {
-  const MockTestScreen({super.key, required this.prefs});
+  const MockTestScreen({super.key, required this.prefs, this.onOpenSpeaking});
   final SharedPreferences prefs;
+  final VoidCallback? onOpenSpeaking;
 
   @override
   State<MockTestScreen> createState() => _MockTestScreenState();
@@ -455,7 +456,13 @@ class _MockTestScreenState extends State<MockTestScreen> {
     _essayField(_speaking, 'Enter your practice response…', 9),
     Align(alignment: Alignment.centerRight, child: Text('${_wordCount(_speaking.text)} words', style: const TextStyle(color: _green, fontWeight: FontWeight.w800, fontSize: 11))),
     const SizedBox(height: 12),
-    const Text('For a genuine speaking assessment, use Speaking Studio and its microphone-based examiner. This text entry is only a planning and completion aid.', style: TextStyle(color: _muted, fontSize: 11, height: 1.45)),
+    if (widget.onOpenSpeaking != null)
+      FilledButton.tonalIcon(
+        onPressed: widget.onOpenSpeaking,
+        icon: const Icon(Icons.mic_rounded),
+        label: const Text('Continue in AI Speaking Studio'),
+      ),
+    const Text('This typed response is used only for language-content coaching. It cannot measure real-time fluency or pronunciation; use the microphone-based Speaking Studio for spoken practice.', style: TextStyle(color: _muted, fontSize: 11, height: 1.45)),
   ]);
 
   Widget _bottomControls() => SafeArea(
